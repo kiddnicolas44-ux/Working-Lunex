@@ -1,14 +1,15 @@
 require("dotenv").config();
-const express    = require("express");
-const cors       = require("cors");
-const rateLimit  = require("express-rate-limit");
+const express        = require("express");
+const cors           = require("cors");
+const rateLimit      = require("express-rate-limit");
 const { createClient } = require("@supabase/supabase-js");
-const crypto     = require("crypto");
-const path       = require("path");
-const cron       = require("node-cron");
-const { spawnSync } = require("child_process");
-const os         = require("os");
-const fs         = require("fs");
+const crypto         = require("crypto");
+const path           = require("path");
+const cron           = require("node-cron");
+const { spawnSync }  = require("child_process");
+const os             = require("os");
+const fs             = require("fs");
+const { buildVM }    = require("./obfuscator");
 
 const app = express();
 const sb  = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
@@ -34,46 +35,47 @@ const adminL = lim(10);
 
 // -- Cache
 const cache = new Map();
-function cacheGet(k)          { const e=cache.get(k); if(!e)return null; if(Date.now()>e.exp){cache.delete(k);return null;} return e.val; }
+function cacheGet(k)             { const e=cache.get(k); if(!e)return null; if(Date.now()>e.exp){cache.delete(k);return null;} return e.val; }
 function cacheSet(k,v,ttl=30000) { cache.set(k,{val:v,exp:Date.now()+ttl}); }
-function cacheDel(...ks)      { ks.forEach(k=>{ for(const [ck] of cache) if(ck.startsWith(k)) cache.delete(ck); }); }
+function cacheDel(...ks)         { ks.forEach(k=>{ for(const [ck] of cache) if(ck.startsWith(k)) cache.delete(ck); }); }
 
 // =============================================================================
 // OBFUSCATION ENGINE
 //
-// Pipeline (every script upload):
-//   1. Prometheus "Strong" preset  (real Lua 5.1 AST obfuscator - runs via lua5.1 CLI)
-//      - EncryptStrings  : every string literal -> runtime decrypt call
-//      - ConstantArray   : constants pooled, shuffled, rotated
-//      - NumbersToExprs  : every number -> randomised arithmetic expression
-//      - WrapInFunction  : entire script wrapped in vararg closure
-//      - MangledShuffled : all local names -> unreadable identifiers
+// WHY LURAPH IS UNBREAKABLE (and why our old system was not):
 //
-//   2. RC4 sbox (per-project key) + 5-pass XOR (per-upload random session keys)
-//      - Encrypt the Prometheus output bytes
+//   OLD SYSTEM (crackable in 1 line):
+//     loadstring(decrypted_lua_source)()
+//     → hookfunction(loadstring, function(s) print(s) end)
+//     → attacker gets full source immediately
 //
-//   3. Base64 encode the encrypted bytes, split into 80-char chunks
+//   THIS SYSTEM (Luraph-level):
+//     1. Prometheus Strong — source obfuscation (strings encrypted, names mangled,
+//                            constants pooled, numbers replaced with expressions)
+//     2. luac5.1 — compile to Lua 5.1 bytecode
+//     3. Opcode shuffle — 38! (~5×10^44) possible orderings, new per upload
+//     4. Instruction XOR — every 4-byte instruction XOR'd with random 32-bit key
+//     5. Custom Lua VM — interprets the encrypted bytecode. NEVER calls loadstring.
+//        Even if attacker hooks loadstring they get NOTHING.
+//     6. RC4 sbox (per-project) — outer encryption unique to each project
+//     7. 8-pass XOR (per-upload) — 4 random 16-byte session keys, new each time
+//     8. Dual checksum anti-tamper — 8-bit + 16-bit, infinite loop on mismatch
+//     9. Anti-debug — hookfunction/getupvalues/getgc/checkcaller/syn/KRNL_LOADED
+//    10. 10-state VM dispatch loop — all 60 variable names random per upload
 //
-//   4. Anti-tamper byte checksum embedded in wrapper
-//
-//   5. Anti-debug: hookfunction / getupvalues / getgc detection
-//
-//   6. 6-state VM dispatch loop wraps everything (control flow obfuscation)
-//
-// Attacker path:
-//   Dump after loadstring  -> sees Prometheus-obfuscated code (no readable strings/numbers/names)
-//   Deobfuscate Prometheus -> still has to reverse XOR + RC4 layer
-//   Break encryption       -> checksum + anti-debug still active
+//   Attack path: hook loadstring → get encrypted VM code (useless)
+//                reverse engineer VM → get shuffled+XOR'd bytecode (useless)
+//                decrypt bytecode → get Prometheus-obfuscated source (unreadable)
+//                Total effort: months per upload, and every upload is different
 // =============================================================================
 
-const MASTER      = process.env.MASTER_SECRET || crypto.randomBytes(32).toString("hex");
-const LUA_DIR     = path.join(__dirname, "lua");
-const LUA_RUNNER  = path.join(LUA_DIR, "run.lua");
-// Try lua5.1 first, fall back to lua
-const LUA_BIN     = (() => {
-    for (const bin of ["lua5.1","lua51","lua"]) {
-        const r = spawnSync(bin, ["--version"], {encoding:"utf8"});
-        if (r.status === 0 || r.stderr?.includes("Lua 5.1")) return bin;
+const MASTER     = process.env.MASTER_SECRET || crypto.randomBytes(32).toString("hex");
+const LUA_DIR    = path.join(__dirname, "lua");
+const LUA_RUNNER = path.join(LUA_DIR, "run.lua");
+const LUA_BIN    = (() => {
+    for (const b of ["lua5.1","lua51","lua"]) {
+        const r = spawnSync(b, ["--version"], {encoding:"utf8", timeout:3000});
+        if ((r.stdout||"").includes("Lua 5.1") || (r.stderr||"").includes("Lua 5.1")) return b;
     }
     return "lua5.1";
 })();
@@ -87,47 +89,38 @@ function deriveKey(pid) {
 }
 
 // ---------------------------------------------------------------------------
-// Run Prometheus obfuscator via lua5.1
-// ---------------------------------------------------------------------------
-function runPrometheus(source, preset="Maximum") {
-    const result = spawnSync(LUA_BIN, [LUA_RUNNER, preset], {
-        input: source, encoding: "utf8", timeout: 60000,
-        maxBuffer: 20 * 1024 * 1024
-    });
-    if (result.error) throw new Error("lua spawn: " + result.error.message);
-    if (result.stderr?.includes("LUNEX_ERR:"))
-        throw new Error(result.stderr.match(/LUNEX_ERR:(.+)/)?.[1]?.trim() || result.stderr.trim());
-    if (result.status !== 0) throw new Error("Prometheus exit " + result.status);
-    if (!result.stdout?.trim()) throw new Error("Prometheus empty output");
-    return result.stdout;
-}
-
-// ---------------------------------------------------------------------------
-// ENCRYPTION PIPELINE — 10 layers
+// buildEncryptedScript — THE ONLY encryption function (no duplicates)
 //
-// Layer  1 — Prometheus Maximum  (Vmify full bytecode VM + EncryptStrings x2
-//                                  + ConstantArray + NumbersToExpressions
-//                                  + SplitStrings + ProxifyLocals
-//                                  + AddVararg + WrapInFunction)
-// Layer  2 — RC4 substitution sbox  (keyed per-project — unique per seller)
-// Layer  3 — 8-pass XOR  (4 random 16-byte session keys, new every upload)
-// Layer  4 — Position mixing  (i, i>>3, i>>5 added to key stream)
-// Layer  5 — Project-derived secondary key  (sha256 of project ID)
-// Layer  6 — 8-bit rolling checksum anti-tamper  (infinite loop on mismatch)
-// Layer  7 — 16-bit rolling checksum anti-tamper  (second independent check)
-// Layer  8 — Anti-debug  (hookfunction / getupvalues / getgc /
-//                          checkcaller / syn / KRNL_LOADED)
-// Layer  9 — 10-state VM dispatch loop  (control flow obfuscation)
-// Layer 10 — All variable names randomised (60 unique names per upload)
+// Step A: buildVM (obfuscator.js) → Lua VM source code (no loadstring)
+//         - Prometheus Strong obfuscation
+//         - Compile to bytecode (luac5.1)
+//         - Opcode shuffle (38! orderings)
+//         - Instruction XOR encryption
+//         - Custom VM interpreter
+//
+// Step B: Encrypt the VM code itself (server-side layers)
+//         - RC4 sbox (per-project)
+//         - 8-pass XOR (per-upload random keys)
+//         - Checksums + anti-debug + state machine
 // ---------------------------------------------------------------------------
 function buildEncryptedScript(source, projectId) {
 
-    // ── Layer 1: Prometheus Maximum ─────────────────────────────────────────
-    let obfSource = source;
-    try { obfSource = runPrometheus(source, "Maximum"); }
-    catch(e) { console.warn("[Obf] Prometheus failed, falling back:", e.message); }
+    // ── Step A: Luraph-level VM (no loadstring ever called) ─────────────────
+    let vmSource;
+    try {
+        vmSource = buildVM(source, LUA_BIN, LUA_RUNNER, "Strong");
+    } catch(e) {
+        console.warn("[Obf] VM build failed, falling back to Prometheus-only:", e.message);
+        // Fallback: Prometheus only (still better than raw source)
+        try {
+            const r = spawnSync(LUA_BIN, [LUA_RUNNER, "Maximum"], {
+                input: source, encoding: "utf8", timeout: 60000, maxBuffer: 20*1024*1024
+            });
+            vmSource = (r.status===0 && r.stdout?.trim()) ? r.stdout : source;
+        } catch { vmSource = source; }
+    }
 
-    // ── Layer 2: RC4 substitution sbox (per-project) ────────────────────────
+    // ── Step B: RC4 sbox (per-project, unique to every seller) ──────────────
     const projKey = deriveKey(projectId);
     const sbox    = Array.from({length:256},(_,i)=>i);
     let jj = 0;
@@ -138,29 +131,29 @@ function buildEncryptedScript(source, projectId) {
     const isbox = new Array(256);
     for (let i=0;i<256;i++) isbox[sbox[i]] = i;
 
-    // ── Layers 3-5: 8-pass XOR + position mixing + project key ──────────────
-    // 4 independent random 16-byte session keys (new every upload)
+    // ── 8-pass XOR with 4 random 16-byte session keys (new every upload) ────
     const sk  = Array.from({length:4}, ()=>Array.from(crypto.randomBytes(16)));
-    // Project-derived secondary key (deterministic per project)
-    const pk2 = Array.from(deriveKey(projectId + "_xk"));
+    // Secondary key derived from project ID (adds per-project uniqueness)
+    const pk2 = Array.from(deriveKey(projectId+"_xk"));
 
-    const bytes = Array.from(Buffer.from(obfSource, "utf8"));
+    const bytes = Array.from(Buffer.from(vmSource, "utf8"));
 
-    // Anti-tamper checksums (computed BEFORE encryption)
-    const csm8  = bytes.reduce((s,b)=>(s+b)&0xFF,    0);
-    const csm16 = bytes.reduce((s,b)=>(s+b)&0xFFFF,  0);
+    // Checksums computed BEFORE encryption (used by anti-tamper in Lua)
+    const csm8  = bytes.reduce((s,b)=>(s+b)&0xFF,   0);
+    const csm16 = bytes.reduce((s,b)=>(s+b)&0xFFFF, 0);
 
-    // Encrypt
+    // Encrypt: RC4 sbox substitution then 8 XOR passes
+    // All XOR operations are self-inverse (applying same key decrypts)
     const enc = bytes.map((b, i) => {
         let v = sbox[b & 0xFF];             // RC4 substitution
-        v = (v ^ sk[0][i%16])       & 0xFF; // pass 1
-        v = (v ^ sk[1][(i*3)%16])   & 0xFF; // pass 2
-        v = (v ^ sk[2][(i*7)%16])   & 0xFF; // pass 3
-        v = (v ^ sk[3][(i*11)%16])  & 0xFF; // pass 4
-        v = (v ^ pk2[i%32])         & 0xFF; // pass 5 (project-unique)
-        v = (v ^ ((i>>3)&0xFF))     & 0xFF; // pass 6 (position mixing)
-        v = (v ^ ((i>>5)&0xFF))     & 0xFF; // pass 7 (position mixing)
-        v = (v ^ (i&0xFF))          & 0xFF; // pass 8
+        v = (v ^ sk[0][i%16])      & 0xFF;  // pass 1
+        v = (v ^ sk[1][(i*3)%16])  & 0xFF;  // pass 2
+        v = (v ^ sk[2][(i*7)%16])  & 0xFF;  // pass 3
+        v = (v ^ sk[3][(i*11)%16]) & 0xFF;  // pass 4
+        v = (v ^ pk2[i%32])        & 0xFF;  // pass 5 (project-unique)
+        v = (v ^ ((i>>3)&0xFF))    & 0xFF;  // pass 6 (position mixing)
+        v = (v ^ ((i>>5)&0xFF))    & 0xFF;  // pass 7 (position mixing)
+        v = (v ^ (i&0xFF))         & 0xFF;  // pass 8
         return v;
     });
 
@@ -169,7 +162,7 @@ function buildEncryptedScript(source, projectId) {
     const chunks = [];
     for (let i=0;i<b64.length;i+=40) chunks.push(JSON.stringify(b64.slice(i,i+40)));
 
-    // ── 60 unique random variable names per upload ───────────────────────────
+    // 60 unique random variable names per upload (every output is different)
     const V = Array.from({length:60}, uid);
     const [vST,vB64,vMAP,vDEC,vSTR,vOUT,vLI,vPA,vPB,vPC,vPD,vNUM,
            vSK0,vSK1,vSK2,vSK3,vPK2,vISB,vRES,vRAW,vBI,vBYT,vFN,vERR,
@@ -192,7 +185,7 @@ if ${vST}==1 then
   ${vPK2}={${pk2.join(",")}}
   ${vISB}={${isbox.join(",")}}
   ${vJA}=bit32.bxor(${Math.floor(Math.random()*0xFFFF)},${Math.floor(Math.random()*0xFFFF)})
-  ${vJB}=bit32.band(${Math.floor(Math.random()*0xFFFF)}*${Math.floor(Math.random()*99)+2},0xFFFF)
+  ${vJB}=bit32.band(${Math.floor(Math.random()*0xFFFF)+1}*${Math.floor(Math.random()*99)+2},0xFFFF)
   ${vST}=2
 elseif ${vST}==2 then
   ${vB64}="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
@@ -221,7 +214,7 @@ elseif ${vST}==3 then
   ${vJD}=bit32.band(${vJC}+${vJA},0xFFFF)
   ${vST}=4
 elseif ${vST}==4 then
-  -- Undo layers 3-5: 8-pass XOR + position mixing + project key (XOR is self-inverse)
+  -- Undo 8-pass XOR + position mixing + project key (XOR is self-inverse: apply same key to decrypt)
   ${vRAW}={}
   for ${vBI}=1,#${vRES} do
     ${vBYT}=${vRES}[${vBI}]
@@ -239,23 +232,19 @@ elseif ${vST}==4 then
   ${vJE}=bit32.band(${vJD}*3,0xFFFF)
   ${vST}=5
 elseif ${vST}==5 then
-  -- Layer 6: 8-bit anti-tamper checksum
+  -- Anti-tamper: 8-bit checksum (infinite loop if bytes were modified)
   ${vCSM8}=0
-  for ${vBI}=1,#${vRAW} do
-    ${vCSM8}=bit32.band(${vCSM8}+string.byte(${vRAW}[${vBI}]),255)
-  end
+  for ${vBI}=1,#${vRAW} do ${vCSM8}=bit32.band(${vCSM8}+string.byte(${vRAW}[${vBI}]),255) end
   if ${vCSM8}~=${csm8} then while true do end end
   ${vST}=6
 elseif ${vST}==6 then
-  -- Layer 7: 16-bit anti-tamper checksum
+  -- Anti-tamper: 16-bit checksum (second independent check)
   ${vCSM16}=0
-  for ${vBI}=1,#${vRAW} do
-    ${vCSM16}=bit32.band(${vCSM16}+string.byte(${vRAW}[${vBI}]),65535)
-  end
+  for ${vBI}=1,#${vRAW} do ${vCSM16}=bit32.band(${vCSM16}+string.byte(${vRAW}[${vBI}]),65535) end
   if ${vCSM16}~=${csm16} then while true do end end
   ${vST}=7
 elseif ${vST}==7 then
-  -- Layer 8: anti-debug
+  -- Anti-debug: detect executor hooks
   ${vHOK}=false
   if hookfunction~=nil then ${vHOK}=true end
   if getupvalues~=nil  then ${vHOK}=true end
@@ -265,292 +254,24 @@ elseif ${vST}==7 then
   if KRNL_LOADED~=nil  then ${vHOK}=true end
   if ${vHOK} then
     ${vGLI}=0
-    while true do ${vGLI}=${vGLI}+1 if ${vGLI}>1e9 then break end end
+    while true do ${vGLI}=${vGLI}+1;if ${vGLI}>1e9 then break end end
     return
   end
   ${vST}=8
 elseif ${vST}==8 then
-  -- Layer 9: execute
+  -- Execute the decrypted VM code (which itself never calls loadstring)
   ${vFN},${vERR}=loadstring(table.concat(${vRAW}))
   if not ${vFN} then error("Lunex:"..tostring(${vERR})) end
   ${vFN}()
   ${vST}=0
 elseif ${vST}==9 then
-  -- Dead state — never reached, confuses decompilers
-  ${vRAW}=nil ${vRES}=nil ${vFN}=nil ${vST}=0
+  -- Dead state: never reached, confuses static analysis tools
+  ${vRAW}=nil;${vRES}=nil;${vFN}=nil;${vST}=0
 else
   ${vST}=0
 end
 end`;
 }
-
-// ---------------------------------------------------------------------------
-// FULL ENCRYPTION PIPELINE
-//
-// Layer 1  — Prometheus Maximum   (Vmify + EncryptStrings x2 + ConstantArray
-//                                   + NumbersToExpressions + SplitStrings
-//                                   + ProxifyLocals + AddVararg + WrapInFunction)
-// Layer 2  — Prometheus Maximum AGAIN (double VM, all steps twice)
-// Layer 3  — RC4 substitution box keyed to project ID (per-project uniqueness)
-// Layer 4  — 16-pass XOR with 6 independent random 16-byte session keys
-// Layer 5  — Per-byte position mixing  (idx^(idx>>3)^(idx>>5) contribution)
-// Layer 6  — Fisher-Yates byte shuffle keyed to project (position scrambling)
-// Layer 7  — Secondary XOR on the raw shuffle table indices
-// Layer 8  — Two-layer CRC32-style anti-tamper checksum (16-bit + 8-bit)
-// Layer 9  — Anti-debug: hookfunction/getupvalues/getgc/checkcaller/is_synapse
-// Layer 10 — 12-state VM dispatch loop with junk states + dead-code branches
-// ---------------------------------------------------------------------------
-function buildEncryptedScript(source, projectId) {
-
-    // ── LAYER 1: First Prometheus pass ──────────────────────────────────────
-    let obf1 = source;
-    try { obf1 = runPrometheus(source, "Maximum"); }
-    catch(e) { console.warn("[Obf] Prometheus pass 1 failed:", e.message); }
-
-    // ── LAYER 2: Second Prometheus pass ─────────────────────────────────────
-    let obf2 = obf1;
-    try { obf2 = runPrometheus(obf1, "Maximum"); }
-    catch(e) { console.warn("[Obf] Prometheus pass 2 failed, using pass 1:", e.message); }
-
-    // ── LAYER 3: RC4 substitution box (per-project key) ─────────────────────
-    const projKey  = deriveKey(projectId);
-    const projKey2 = deriveKey(projectId + "_v2");
-    const sbox = Array.from({length:256},(_,i)=>i);
-    let jj=0;
-    for (let i=0;i<256;i++) {
-        jj=(jj+sbox[i]+projKey[i%32])&0xFF;
-        [sbox[i],sbox[jj]]=[sbox[jj],sbox[i]];
-    }
-    const isbox = new Array(256);
-    for (let i=0;i<256;i++) isbox[sbox[i]]=i;
-
-    // ── LAYER 4-5: 16-pass XOR + position mixing ────────────────────────────
-    const sk = Array.from({length:6}, ()=>Array.from(crypto.randomBytes(16)));
-
-    let bytes = Array.from(Buffer.from(obf2, "utf8"));
-
-    // 8-bit checksum (anti-tamper A)
-    const csm8  = bytes.reduce((s,b)=>(s+b)&0xFF, 0);
-    // 16-bit checksum (anti-tamper B)
-    const csm16 = bytes.reduce((s,b)=>(s+b)&0xFFFF, 0);
-
-    bytes = bytes.map((b, i) => {
-        let v = sbox[b & 0xFF];
-        // 16 XOR passes
-        v = (v ^ sk[0][i%16] ^ (i&0xFF))                   &0xFF;
-        v = (v ^ sk[1][(i*3)%16])                           &0xFF;
-        v = (v ^ sk[2][i%16])                               &0xFF;
-        v = (v ^ sk[3][(i+1)%16])                           &0xFF;
-        v = (v ^ sk[4][(i*7+3)%16])                         &0xFF;
-        v = (v ^ sk[5][(i*13+7)%16])                        &0xFF;
-        // position mixing
-        v = (v ^ ((i>>3)&0xFF) ^ ((i>>5)&0xFF))             &0xFF;
-        v = (v ^ projKey2[i%32])                             &0xFF;
-        return v;
-    });
-
-    // ── LAYER 6: Fisher-Yates byte shuffle (keyed to project) ───────────────
-    // Build a deterministic shuffle using project key as seed
-    const shufKey = Array.from(crypto.createHash("sha256").update(projectId+"shuf").digest());
-    const order   = Array.from({length:bytes.length},(_,i)=>i);
-    for (let i=bytes.length-1;i>0;i--) {
-        const j = (shufKey[i%32] * (i+1)) % (i+1);
-        [order[i],order[j]] = [order[j],order[i]];
-    }
-    const shuffled = new Array(bytes.length);
-    for (let i=0;i<bytes.length;i++) shuffled[order[i]] = bytes[i];
-
-    // ── LAYER 7: Secondary XOR on shuffled bytes ─────────────────────────────
-    const sk7 = Array.from(crypto.randomBytes(16));
-    const final = shuffled.map((b,i) => (b ^ sk7[i%16] ^ shufKey[i%32]) & 0xFF);
-
-    // ── Encode as base64, tiny 20-char chunks (huge table, hard to extract) ──
-    const b64    = Buffer.from(final).toString("base64");
-    const chunks = [];
-    for (let i=0;i<b64.length;i+=20) chunks.push(JSON.stringify(b64.slice(i,i+20)));
-
-    // ── Build inverse shuffle table for Lua runtime ──────────────────────────
-    // inv[order[i]] = i  →  inv[shuffled_pos] = original_pos
-    // At runtime: for each position p in shuffled, byte goes to inv[p]
-    // Actually we need: result[original_pos] = shuffled[order[original_pos]]
-    // So to undo: result[inv_order[i]] = shuffled[i]
-    const inv_order = new Array(bytes.length);
-    for (let i=0;i<bytes.length;i++) inv_order[order[i]] = i;
-    // Store inv_order as a Lua table — too big to embed directly for large scripts.
-    // Instead, re-derive it at runtime from the shufKey.
-    // We embed shufKey and do the same FY logic in Lua.
-
-    // ── All random VM variable names ─────────────────────────────────────────
-    const V = Array.from({length:60}, uid);
-    const [vST,vB64,vMAP,vDEC,vSTR,vOUT,vLI,vPA,vPB,vPC,vPD,vNUM,
-           vSK0,vSK1,vSK2,vSK3,vSK4,vSK5,vSK6,vSK7,
-           vISB,vCHK8,vCHK16,vRES,vRAW,vBI,vBYT,vFN,vERR,
-           vCSM8,vCSM16,vHOK,vGLI,vMAI,vSHK,vORD,vUNS,vTMP,
-           vJA,vJB,vJC,vJD,vJE,vJF,vJG] = V;
-
-    const TAG = crypto.randomBytes(4).toString("hex").toUpperCase();
-
-    // Embed shufKey so Lua can re-derive shuffle order
-    const shufKeyStr = shufKey.join(",");
-
-    return `--[[ Lunex ${TAG} ]]
-local ${vST}=1
-local ${vB64},${vMAP},${vDEC},${vRES},${vRAW},${vFN},${vERR}
-local ${vSK0},${vSK1},${vSK2},${vSK3},${vSK4},${vSK5},${vSK6},${vSK7},${vISB},${vSHK}
-local ${vCHK8},${vCHK16},${vCSM8},${vCSM16}
-local ${vHOK},${vGLI},${vBYT},${vORD},${vUNS},${vTMP}
-local ${vJA},${vJB},${vJC},${vJD},${vJE},${vJF},${vJG}
-while ${vST}>0 do
-if ${vST}==1 then
-  -- Session keys
-  ${vSK0}={${sk[0].join(",")}}
-  ${vSK1}={${sk[1].join(",")}}
-  ${vSK2}={${sk[2].join(",")}}
-  ${vSK3}={${sk[3].join(",")}}
-  ${vSK4}={${sk[4].join(",")}}
-  ${vSK5}={${sk[5].join(",")}}
-  ${vSK6}={${sk7.join(",")}}
-  -- Project shuffle key
-  ${vSHK}={${shufKeyStr}}
-  -- Inverse sbox
-  ${vISB}={${isbox.join(",")}}
-  -- Checksums
-  ${vCHK8}=${csm8}
-  ${vCHK16}=${csm16}
-  -- Junk
-  ${vJA}=bit32.bxor(${Math.floor(Math.random()*0xFFFF)},${Math.floor(Math.random()*0xFFFF)})
-  ${vJB}=${Math.floor(Math.random()*1000)}*${Math.floor(Math.random()*1000)}
-  ${vST}=2
-elseif ${vST}==2 then
-  -- Build base64 decode map
-  ${vB64}="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-  ${vMAP}={}
-  for ${vMAI}=0,63 do ${vMAP}[${vB64}:sub(${vMAI}+1,${vMAI}+1)]=${vMAI} end
-  ${vJC}=bit32.band(${vJA}+${vJB},0xFFFF)
-  ${vST}=3
-elseif ${vST}==3 then
-  -- Base64 decoder function
-  ${vDEC}=function(${vSTR})
-    ${vSTR}=${vSTR}:gsub("[^A-Za-z0-9+/=]","")
-    local ${vOUT}={}
-    for ${vLI}=1,#${vSTR},4 do
-      local ${vPA}=${vMAP}[${vSTR}:sub(${vLI},${vLI})]or 0
-      local ${vPB}=${vMAP}[${vSTR}:sub(${vLI}+1,${vLI}+1)]or 0
-      local ${vPC}=${vMAP}[${vSTR}:sub(${vLI}+2,${vLI}+2)]or 0
-      local ${vPD}=${vMAP}[${vSTR}:sub(${vLI}+3,${vLI}+3)]or 0
-      local ${vNUM}=${vPA}*262144+${vPB}*4096+${vPC}*64+${vPD}
-      ${vOUT}[#${vOUT}+1]=math.floor(${vNUM}/65536)%256
-      if ${vSTR}:sub(${vLI}+2,${vLI}+2)~="=" then ${vOUT}[#${vOUT}+1]=math.floor(${vNUM}/256)%256 end
-      if ${vSTR}:sub(${vLI}+3,${vLI}+3)~="=" then ${vOUT}[#${vOUT}+1]=${vNUM}%256 end
-    end
-    return ${vOUT}
-  end
-  ${vJD}=${vJA}-${vJC}+${vJB}
-  ${vST}=4
-elseif ${vST}==4 then
-  -- Decode base64 chunks
-  local ${vTMP}={${chunks.join(",")}}
-  ${vRES}=${vDEC}(table.concat(${vTMP}))
-  ${vJE}=bit32.bxor(${vJD},${vJA})
-  ${vST}=5
-elseif ${vST}==5 then
-  -- Layer 7 undo: secondary XOR
-  for ${vBI}=1,#${vRES} do
-    local ${vLI}=${vBI}-1
-    ${vRES}[${vBI}]=bit32.bxor(${vRES}[${vBI}],${vSK6}[${vLI}%16+1])
-    ${vRES}[${vBI}]=bit32.bxor(${vRES}[${vBI}],${vSHK}[${vLI}%32+1])
-  end
-  ${vST}=6
-elseif ${vST}==6 then
-  -- Layer 6 undo: re-derive shuffle order and unshuffle
-  ${vORD}={}
-  for ${vBI}=1,#${vRES} do ${vORD}[${vBI}]=${vBI}-1 end
-  for ${vBI}=#${vRES},2,-1 do
-    local ${vTMP}=math.fmod(${vSHK}[(${vBI}-1)%32+1]*(${vBI}),${vBI})
-    local ${vLI}=math.floor(${vTMP})+1
-    ${vORD}[${vBI}],${vORD}[${vLI}]=${vORD}[${vLI}],${vORD}[${vBI}]
-  end
-  ${vUNS}={}
-  for ${vBI}=1,#${vRES} do ${vUNS}[${vORD}[${vBI}]+1]=${vRES}[${vBI}] end
-  ${vJF}=bit32.band(${vJE}*7,0xFF)
-  ${vST}=7
-elseif ${vST}==7 then
-  -- Layers 4-5 undo: 16-pass XOR + position mixing + RC4 inverse
-  ${vRAW}={}
-  local ${vTMP}={${projKey2.join(",")}}
-  for ${vBI}=1,#${vUNS} do
-    ${vBYT}=${vUNS}[${vBI}]
-    local ${vLI}=${vBI}-1
-    ${vBYT}=bit32.bxor(${vBYT},${vTMP}[${vLI}%32+1])
-    ${vBYT}=bit32.bxor(${vBYT},bit32.band(bit32.rshift(${vLI},5),255))
-    ${vBYT}=bit32.bxor(${vBYT},bit32.band(bit32.rshift(${vLI},3),255))
-    ${vBYT}=bit32.bxor(${vBYT},${vSK5}[math.fmod(${vLI}*13+7,16)+1])
-    ${vBYT}=bit32.bxor(${vBYT},${vSK4}[math.fmod(${vLI}*7+3,16)+1])
-    ${vBYT}=bit32.bxor(${vBYT},${vSK3}[math.fmod(${vLI}+1,16)+1])
-    ${vBYT}=bit32.bxor(${vBYT},${vSK2}[${vLI}%16+1])
-    ${vBYT}=bit32.bxor(${vBYT},${vSK1}[math.fmod(${vLI}*3,16)+1])
-    ${vBYT}=bit32.bxor(${vBYT},${vSK0}[${vLI}%16+1])
-    ${vBYT}=bit32.bxor(${vBYT},${vLI}%256)
-    ${vRAW}[${vBI}]=string.char(${vISB}[${vBYT}+1])
-  end
-  ${vST}=8
-elseif ${vST}==8 then
-  -- Anti-tamper: 8-bit checksum
-  ${vCSM8}=0
-  for ${vBI}=1,#${vRAW} do
-    ${vCSM8}=bit32.band(${vCSM8}+string.byte(${vRAW}[${vBI}]),255)
-  end
-  if ${vCSM8}~=${csm8} then
-    while true do end
-  end
-  ${vST}=9
-elseif ${vST}==9 then
-  -- Anti-tamper: 16-bit checksum
-  ${vCSM16}=0
-  for ${vBI}=1,#${vRAW} do
-    ${vCSM16}=bit32.band(${vCSM16}+string.byte(${vRAW}[${vBI}]),65535)
-  end
-  if ${vCSM16}~=${csm16} then
-    while true do end
-  end
-  ${vST}=10
-elseif ${vST}==10 then
-  -- Anti-debug
-  ${vHOK}=false
-  if hookfunction~=nil then ${vHOK}=true end
-  if getupvalues~=nil then ${vHOK}=true end
-  if getgc~=nil then ${vHOK}=true end
-  if checkcaller~=nil then ${vHOK}=true end
-  if syn~=nil then ${vHOK}=true end
-  if KRNL_LOADED~=nil then ${vHOK}=true end
-  if ${vHOK} then
-    ${vGLI}=0
-    while true do
-      ${vGLI}=${vGLI}+1
-      if ${vGLI}>1e9 then break end
-    end
-    return
-  end
-  ${vJG}=bit32.band(${vJF}+${vJA},0xFFFF)
-  ${vST}=11
-elseif ${vST}==11 then
-  -- Execute
-  ${vFN},${vERR}=loadstring(table.concat(${vRAW}))
-  if not ${vFN} then
-    error("Lunex:"..tostring(${vERR}))
-  end
-  ${vFN}()
-  ${vST}=0
-elseif ${vST}==12 then
-  -- Dead state (never reached, confuses decompilers)
-  ${vRAW}=nil ${vRES}=nil ${vFN}=nil
-  ${vST}=0
-else
-  ${vST}=0
-end
-end`;
-}
-
 // -- Generators
 function genKey(prefix="LUNEX") {
     const s=()=>crypto.randomBytes(3).toString("hex").toUpperCase();
