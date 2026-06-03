@@ -124,7 +124,7 @@ function buildEncryptedScript(source, projectId) {
     // === LAYER 1: Prometheus ===
     let obfSource;
     try {
-        obfSource = runPrometheus(source, "Strong");
+        obfSource = runPrometheus(source, "Maximum");
     } catch(e) {
         console.warn("[Obf] Prometheus failed, using raw source:", e.message);
         obfSource = source;  // fallback - still gets XOR+VM wrapped
