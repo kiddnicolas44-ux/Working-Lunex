@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Lunex — Pricing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#030507;--s1:#07090d;--s2:#0c0f14;--s3:#111519;
+  --bd:rgba(255,255,255,.06);--bd2:rgba(255,255,255,.1);
+  --acc:#4f8ef7;--acc2:#2563eb;--accg:rgba(79,142,247,.12);--accg2:rgba(79,142,247,.06);
+  --grn:#22d18b;--grng:rgba(34,209,139,.1);
+  --red:#ef4444;--redg:rgba(239,68,68,.1);
+  --pur:#9b6dff;--purg:rgba(155,109,255,.12);
+  --txt:#e2e8f0;--txt2:#64748b;--txt3:#2d3a4a;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--txt);font-family:'Inter',sans-serif;min-height:100vh;overflow-x:hidden}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px}
+
+/* SHARED NAV — same as homepage */
+nav{position:fixed;top:0;left:0;right:0;z-index:200;height:60px;display:flex;align-items:center;padding:0 40px;gap:8px;background:rgba(3,5,7,.9);backdrop-filter:blur(24px);border-bottom:1px solid var(--bd)}
+.nav-logo{display:flex;align-items:center;gap:9px;text-decoration:none;margin-right:16px}
+.nav-logo-mark{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#4f8ef7,#9b6dff);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.nav-logo-name{font-size:15px;font-weight:800;background:linear-gradient(90deg,#4f8ef7,#9b6dff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-.3px}
+.nav-tab{padding:7px 16px;border-radius:7px;font-size:13px;font-weight:500;color:var(--txt2);text-decoration:none;transition:.15s}
+.nav-tab:hover{color:var(--txt);background:rgba(255,255,255,.05)}
+.nav-tab.active{color:var(--txt);background:rgba(255,255,255,.07)}
+.nav-space{flex:1}
+.nav-login{padding:7px 18px;border-radius:8px;font-size:13px;font-weight:600;color:var(--txt2);text-decoration:none;border:1px solid var(--bd2);transition:.15s}
+.nav-login:hover{color:var(--txt);border-color:var(--acc)}
+.nav-getstarted{padding:7px 18px;border-radius:8px;font-size:13px;font-weight:700;color:#fff;background:linear-gradient(135deg,#4f8ef7,#9b6dff);text-decoration:none;transition:.2s;box-shadow:0 4px 14px rgba(79,142,247,.25)}
+.nav-getstarted:hover{box-shadow:0 6px 22px rgba(79,142,247,.4)}
+
+/* PAGE */
+.page{padding:100px 40px 80px;max-width:1100px;margin:0 auto}
+.page-head{text-align:center;margin-bottom:52px}
+.eyebrow{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--acc);margin-bottom:14px}
+.page-h1{font-size:clamp(32px,5vw,52px);font-weight:900;letter-spacing:-1.5px;line-height:1.05;margin-bottom:14px}
+.page-sub{font-size:16px;color:var(--txt2);line-height:1.7;max-width:480px;margin:0 auto 20px}
+
+/* COUPON */
+.coupon-row{display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:52px;flex-wrap:wrap}
+.coupon-input{background:var(--s2);border:1px solid var(--bd2);color:var(--txt);padding:10px 16px;border-radius:9px;font-size:13px;font-family:'Inter',sans-serif;outline:none;width:200px;text-transform:uppercase;letter-spacing:.5px;transition:.15s}
+.coupon-input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--accg)}
+.coupon-input::placeholder{text-transform:none;letter-spacing:0;color:var(--txt2)}
+.coupon-btn{padding:10px 20px;background:var(--acc);color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;transition:.15s}
+.coupon-btn:hover{background:var(--acc2)}
+.coupon-tag{font-size:12px;font-weight:700;padding:4px 12px;border-radius:100px}
+.coupon-ok{background:var(--grng);color:var(--grn)}
+.coupon-err{background:var(--redg);color:var(--red)}
+
+/* PLANS */
+.plans-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:60px}
+.plan{background:var(--s1);border:1px solid var(--bd);border-radius:16px;padding:28px;display:flex;flex-direction:column;position:relative;transition:.2s}
+.plan:hover{border-color:var(--bd2);transform:translateY(-3px)}
+.plan.pop{border-color:rgba(79,142,247,.35);background:linear-gradient(160deg,rgba(79,142,247,.04),var(--s1) 60%)}
+.plan-hot{position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#4f8ef7,#9b6dff);color:#fff;font-size:11px;font-weight:700;padding:3px 18px;border-radius:100px;white-space:nowrap;letter-spacing:.3px;box-shadow:0 4px 12px rgba(79,142,247,.3)}
+.plan-tier{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--txt2);margin-bottom:12px}
+.plan-amount{line-height:1;margin-bottom:4px}
+.plan-dollar{font-size:20px;font-weight:700;color:var(--txt2);vertical-align:top;line-height:2}
+.plan-num{font-size:44px;font-weight:900;letter-spacing:-2px}
+.plan-cents{font-size:22px;font-weight:700}
+.plan-orig{font-size:14px;color:var(--txt3);text-decoration:line-through;margin-left:6px}
+.plan-per{font-size:12px;color:var(--txt2);margin-bottom:22px;margin-top:4px}
+.plan-sep{height:1px;background:var(--bd);margin-bottom:20px}
+.plan-feats{list-style:none;display:flex;flex-direction:column;gap:10px;margin-bottom:24px;flex:1}
+.plan-feats li{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--txt2)}
+.pf-ic{width:17px;height:17px;border-radius:50%;background:var(--grng);border:1px solid rgba(34,209,139,.2);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--grn);flex-shrink:0}
+.plan-btn{padding:12px;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;transition:.2s;border:none;text-align:center}
+.pb-p{background:linear-gradient(135deg,#4f8ef7,#9b6dff);color:#fff;box-shadow:0 4px 14px rgba(79,142,247,.2)}.pb-p:hover{box-shadow:0 8px 28px rgba(79,142,247,.4);transform:translateY(-1px)}
+.pb-g{background:var(--s2);color:var(--txt);border:1px solid var(--bd)}.pb-g:hover{border-color:var(--acc);color:var(--acc)}
+
+/* MODAL */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.8);display:none;align-items:center;justify-content:center;z-index:500;backdrop-filter:blur(12px);padding:20px}
+.ov.open{display:flex}
+.modal{background:var(--s1);border:1px solid var(--bd2);border-radius:18px;padding:32px;width:100%;max-width:460px;max-height:90vh;overflow-y:auto;box-shadow:0 48px 100px rgba(0,0,0,.7)}
+.modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+.modal-title{font-size:18px;font-weight:800;letter-spacing:-.3px}
+.mclose{background:var(--s2);border:1px solid var(--bd);color:var(--txt2);width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:.15s;flex-shrink:0}
+.mclose:hover{color:var(--txt)}
+.summary{background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:16px;margin-bottom:20px}
+.sum-row{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:5px 0}
+.sum-lbl{color:var(--txt2)}
+.sum-val{font-weight:600}
+.sum-total{font-size:16px;font-weight:800;border-top:1px solid var(--bd);margin-top:8px;padding-top:12px}
+.free-tag{background:var(--grng);color:var(--grn);padding:2px 10px;border-radius:100px;font-size:12px;font-weight:700}
+.fg{margin-bottom:14px}
+.lbl{display:block;font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.inp{background:var(--s2);border:1px solid var(--bd2);color:var(--txt);padding:11px 14px;border-radius:9px;width:100%;font-size:13px;outline:none;font-family:'Inter',sans-serif;transition:.15s}
+.inp:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--accg)}
+.inp::placeholder{color:var(--txt2)}
+.pay-btn{width:100%;padding:13px;border-radius:9px;border:none;font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;background:linear-gradient(135deg,#4f8ef7,#9b6dff);color:#fff;transition:.2s;box-shadow:0 4px 16px rgba(79,142,247,.25)}
+.pay-btn:hover{box-shadow:0 8px 28px rgba(79,142,247,.4)}
+.pay-btn:disabled{opacity:.5;cursor:not-allowed;transform:none!important}
+.pay-note{text-align:center;font-size:11px;color:var(--txt2);margin-top:12px;line-height:1.6}
+.coins{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:10px}
+.coin{padding:3px 10px;background:var(--s2);border:1px solid var(--bd);border-radius:6px;font-size:11px;color:var(--txt2);font-weight:600}
+.msg{padding:12px 14px;border-radius:9px;font-size:13px;font-weight:600;margin-bottom:14px;display:none;line-height:1.5}
+.msg-ok{background:var(--grng);border:1px solid rgba(34,209,139,.2);color:var(--grn)}
+.msg-err{background:var(--redg);border:1px solid rgba(239,68,68,.2);color:var(--red)}
+
+/* PENDING / SUCCESS */
+#pendingView{text-align:center;padding:10px 0}
+.status-emoji{font-size:52px;margin-bottom:16px;display:block}
+.status-h{font-size:20px;font-weight:800;margin-bottom:8px;letter-spacing:-.3px}
+.status-p{font-size:13px;color:var(--txt2);line-height:1.7;margin-bottom:24px}
+.spinner{display:inline-block;width:28px;height:28px;border:3px solid var(--bd2);border-top-color:var(--acc);border-radius:50%;animation:spin .7s linear infinite;margin-bottom:16px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.api-box{background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:14px 16px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--grn);word-break:break-all;line-height:1.7;margin-bottom:14px;text-align:left}
+
+footer{border-top:1px solid var(--bd);padding:28px 40px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.fl{display:flex;align-items:center;gap:8px;text-decoration:none}
+.fl-m{width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,#4f8ef7,#9b6dff);display:flex;align-items:center;justify-content:center;font-size:11px}
+.fl-n{font-size:13px;font-weight:700;color:var(--txt)}
+.fspace{flex:1}
+.flinks{display:flex;gap:18px}
+.flinks a{font-size:13px;color:var(--txt2);text-decoration:none;transition:.15s}.flinks a:hover{color:var(--txt)}
+.fcopy{font-size:12px;color:var(--txt3)}
+
+@media(max-width:800px){
+  nav{padding:0 20px}
+  .page{padding:90px 20px 60px}
+  .plans-grid{grid-template-columns:1fr}
+  footer{padding:24px 20px}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="nav-logo">
+    <div class="nav-logo-mark">🛡</div>
+    <div class="nav-logo-name">Lunex</div>
+  </a>
+  <a href="/" class="nav-tab">Home</a>
+  <a href="/login" class="nav-tab">Dashboard</a>
+  <a href="/pricing" class="nav-tab active">Pricing</a>
+  <div class="nav-space"></div>
+  <a href="/login" class="nav-login">Log in</a>
+  <a href="/pricing" class="nav-getstarted">Get started</a>
+</nav>
+
+<div class="page">
+  <div class="page-head">
+    <div class="eyebrow">Pricing</div>
+    <h1 class="page-h1">Choose your plan</h1>
+    <p class="page-sub">Pay with any crypto. Account created automatically after blockchain confirmation.</p>
+    <div class="coupon-row">
+      <input class="coupon-input" id="couponInput" placeholder="Coupon code" maxlength="20"/>
+      <button class="coupon-btn" onclick="applyCoupon()">Apply</button>
+      <span id="couponTag"></span>
+    </div>
+  </div>
+
+  <div class="plans-grid">
+    <div class="plan" id="card-starter">
+      <div class="plan-tier">Starter</div>
+      <div class="plan-amount">
+        <span class="plan-dollar">$</span><span class="plan-num" id="n-starter">4</span><span class="plan-cents" id="c-starter">.99</span>
+        <span class="plan-orig" id="o-starter" style="display:none"></span>
+      </div>
+      <div class="plan-per">per month</div>
+      <div class="plan-sep"></div>
+      <ul class="plan-feats">
+        <li><div class="pf-ic">✓</div>3 projects</li>
+        <li><div class="pf-ic">✓</div>500 whitelist keys</li>
+        <li><div class="pf-ic">✓</div>HWID-locked delivery</li>
+        <li><div class="pf-ic">✓</div>Discord bot</li>
+        <li><div class="pf-ic">✓</div>Dashboard access</li>
+      </ul>
+      <button class="plan-btn pb-g" onclick="openCheckout('starter',4.99)">Get Starter</button>
+    </div>
+
+    <div class="plan pop" id="card-pro">
+      <div class="plan-hot">Most Popular</div>
+      <div class="plan-tier">Pro</div>
+      <div class="plan-amount">
+        <span class="plan-dollar">$</span><span class="plan-num" id="n-pro">9</span><span class="plan-cents" id="c-pro">.99</span>
+        <span class="plan-orig" id="o-pro" style="display:none"></span>
+      </div>
+      <div class="plan-per">per month</div>
+      <div class="plan-sep"></div>
+      <ul class="plan-feats">
+        <li><div class="pf-ic">✓</div>10 projects</li>
+        <li><div class="pf-ic">✓</div>5,000 whitelist keys</li>
+        <li><div class="pf-ic">✓</div>HWID-locked delivery</li>
+        <li><div class="pf-ic">✓</div>Discord bot</li>
+        <li><div class="pf-ic">✓</div>Dashboard access</li>
+        <li><div class="pf-ic">✓</div>Priority support</li>
+      </ul>
+      <button class="plan-btn pb-p" onclick="openCheckout('pro',9.99)">Get Pro</button>
+    </div>
+
+    <div class="plan" id="card-elite">
+      <div class="plan-tier">Elite</div>
+      <div class="plan-amount">
+        <span class="plan-dollar">$</span><span class="plan-num" id="n-elite">19</span><span class="plan-cents" id="c-elite">.99</span>
+        <span class="plan-orig" id="o-elite" style="display:none"></span>
+      </div>
+      <div class="plan-per">per month</div>
+      <div class="plan-sep"></div>
+      <ul class="plan-feats">
+        <li><div class="pf-ic">✓</div>50 projects</li>
+        <li><div class="pf-ic">✓</div>50,000 whitelist keys</li>
+        <li><div class="pf-ic">✓</div>HWID-locked delivery</li>
+        <li><div class="pf-ic">✓</div>Discord bot</li>
+        <li><div class="pf-ic">✓</div>Dashboard access</li>
+        <li><div class="pf-ic">✓</div>Priority support</li>
+        <li><div class="pf-ic">✓</div>Unlimited obfuscations</li>
+      </ul>
+      <button class="plan-btn pb-g" onclick="openCheckout('elite',19.99)">Get Elite</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <a href="/" class="fl"><div class="fl-m">🛡</div><div class="fl-n">Lunex</div></a>
+  <div class="fspace"></div>
+  <div class="flinks"><a href="/">Home</a><a href="/login">Dashboard</a></div>
+  <div class="fcopy">© 2026 Lunex</div>
+</footer>
+
+<!-- CHECKOUT MODAL -->
+<div id="ov" class="ov" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div id="checkoutView">
+      <div class="modal-head">
+        <div class="modal-title">Complete Purchase</div>
+        <button class="mclose" onclick="closeModal()">×</button>
+      </div>
+      <div class="summary" id="summary"></div>
+      <div class="msg" id="msg"></div>
+      <div class="fg"><label class="lbl">Your Email</label><input class="inp" id="emailInp" type="email" placeholder="you@email.com" autocomplete="email"/></div>
+      <button class="pay-btn" id="payBtn" onclick="pay()">Pay with Crypto</button>
+      <div class="coins"><span class="coin">BTC</span><span class="coin">ETH</span><span class="coin">USDT</span><span class="coin">LTC</span><span class="coin">SOL</span><span class="coin">+100 more</span></div>
+      <div class="pay-note">Payment via NOWPayments. Your API key is delivered instantly after blockchain confirmation. No account needed to pay.</div>
+    </div>
+    <div id="pendingView" style="display:none">
+      <div id="spinnerWrap"><div class="spinner"></div></div>
+      <div id="statusEmoji" class="status-emoji" style="display:none"></div>
+      <div class="status-h" id="statusH">Waiting for payment…</div>
+      <div class="status-p" id="statusP">Your payment page has opened in a new tab. Complete the payment there — this page updates automatically once the blockchain confirms.</div>
+      <div id="apiWrap" style="display:none">
+        <div class="api-box" id="apiBox"></div>
+        <button class="pay-btn" onclick="navigator.clipboard.writeText(document.getElementById('apiBox').textContent).then(()=>showMsg('Copied!','ok'))">Copy API Key</button>
+        <p style="font-size:12px;color:var(--txt2);margin-top:12px;text-align:center">Go to <a href="/login" style="color:var(--acc)">the dashboard</a> and paste your key to log in.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const BASE = window.location.origin;
+let selPlan = null, couponCode = '', couponData = null, pollInt = null;
+const PRICES = { starter:4.99, pro:9.99, elite:19.99 };
+const NAMES  = { starter:'Starter', pro:'Pro', elite:'Elite' };
+
+// Auto-select plan from URL param
+const urlPlan = new URLSearchParams(location.search).get('plan');
+if (urlPlan && PRICES[urlPlan]) setTimeout(()=>openCheckout(urlPlan, PRICES[urlPlan]), 300);
+
+// Auto-apply coupon from URL
+const urlCoupon = new URLSearchParams(location.search).get('coupon');
+if (urlCoupon) { document.getElementById('couponInput').value=urlCoupon; setTimeout(applyCoupon,400); }
+
+function calcPrice(plan) {
+    let p = PRICES[plan];
+    if (couponData?.valid) {
+        if (couponData.type==='percent') p=+(p*(1-couponData.discount/100)).toFixed(2);
+        if (couponData.type==='fixed')   p=Math.max(0,+(p-couponData.discount).toFixed(2));
+    }
+    return p;
+}
+
+async function applyCoupon() {
+    const code = document.getElementById('couponInput').value.trim().toUpperCase();
+    if (!code) return;
+    couponCode = code;
+    const r = await fetch(BASE+'/v1/coupons/validate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code,plan:selPlan?.id||'pro'})}).then(r=>r.json()).catch(()=>null);
+    const tag = document.getElementById('couponTag');
+    if (r?.valid) {
+        couponData = r;
+        tag.className='coupon-tag coupon-ok';
+        tag.textContent = r.free?'100% off — FREE!':r.discount+'% off';
+        updatePriceDisplays();
+        if (selPlan) renderSummary();
+    } else {
+        couponData=null;
+        tag.className='coupon-tag coupon-err';
+        tag.textContent = r?.message||'Invalid code';
+    }
+}
+document.getElementById('couponInput').addEventListener('keydown',e=>{ if(e.key==='Enter') applyCoupon(); });
+
+function updatePriceDisplays() {
+    for (const [id, orig] of Object.entries(PRICES)) {
+        const fp = calcPrice(id);
+        const [whole,dec] = fp.toFixed(2).split('.');
+        document.getElementById('n-'+id).textContent = whole;
+        document.getElementById('c-'+id).textContent = '.'+dec;
+        const origEl = document.getElementById('o-'+id);
+        if (couponData?.valid && fp < orig) {
+            origEl.textContent='$'+orig.toFixed(2);origEl.style.display='inline';
+        } else { origEl.style.display='none'; }
+    }
+}
+
+function openCheckout(id, origPrice) {
+    selPlan = {id, orig:origPrice};
+    document.getElementById('ov').classList.add('open');
+    document.getElementById('checkoutView').style.display='block';
+    document.getElementById('pendingView').style.display='none';
+    document.getElementById('msg').style.display='none';
+    renderSummary();
+}
+
+function renderSummary() {
+    if (!selPlan) return;
+    const fp = calcPrice(selPlan.id);
+    const free = fp <= 0;
+    let disc = '';
+    if (couponData?.valid) {
+        disc = `<div class="sum-row"><span class="sum-lbl">Coupon (${couponCode})</span><span style="color:var(--grn)">−${couponData.discount}%</span></div>`;
+    }
+    document.getElementById('summary').innerHTML=`
+      <div class="sum-row"><span class="sum-lbl">Plan</span><span class="sum-val">${NAMES[selPlan.id]}</span></div>
+      <div class="sum-row"><span class="sum-lbl">Original</span><span class="sum-val">$${selPlan.orig.toFixed(2)}/mo</span></div>
+      ${disc}
+      <div class="sum-row sum-total">
+        <span>Total today</span>
+        <span>${free?'<span class="free-tag">FREE</span>':`<strong>$${fp.toFixed(2)}</strong>`}</span>
+      </div>`;
+    document.getElementById('payBtn').textContent = free ? 'Claim for Free →' : 'Pay with Crypto';
+}
+
+function showMsg(txt,type){
+    const el=document.getElementById('msg');
+    el.textContent=txt;el.className='msg msg-'+type;el.style.display='block';
+}
+
+async function pay() {
+    const email = document.getElementById('emailInp').value.trim();
+    if (!email||!email.includes('@')) { showMsg('Enter a valid email address.','err'); return; }
+    const btn = document.getElementById('payBtn');
+    btn.disabled=true; btn.textContent='Processing…';
+    const body={plan:selPlan.id,email};
+    if (couponCode) body.coupon=couponCode;
+    const r = await fetch(BASE+'/v1/payments/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>r.json()).catch(e=>({error:e.message}));
+    btn.disabled=false; btn.textContent=calcPrice(selPlan.id)<=0?'Claim for Free →':'Pay with Crypto';
+    if (r.error) { showMsg(r.error,'err'); return; }
+    if (r.free) { showPending(); showDone(r.api_key,r.plan); return; }
+    window.open(r.invoice_url,'_blank');
+    showPending();
+    startPoll(r.invoice_id);
+}
+
+function showPending() {
+    document.getElementById('checkoutView').style.display='none';
+    document.getElementById('pendingView').style.display='block';
+    document.getElementById('spinnerWrap').style.display='block';
+    document.getElementById('statusEmoji').style.display='none';
+    document.getElementById('statusH').textContent='Waiting for payment…';
+    document.getElementById('statusP').textContent='Your payment page opened in a new tab. Complete the payment — this updates automatically after blockchain confirmation.';
+    document.getElementById('apiWrap').style.display='none';
+}
+
+function showDone(apiKey, plan) {
+    clearInterval(pollInt);
+    document.getElementById('spinnerWrap').style.display='none';
+    document.getElementById('statusEmoji').style.display='block';
+    document.getElementById('statusEmoji').textContent='✅';
+    document.getElementById('statusH').textContent='Payment Confirmed!';
+    document.getElementById('statusP').textContent=`Your ${plan||selPlan?.id} account is active. Copy your API key and log in.`;
+    document.getElementById('apiBox').textContent=apiKey;
+    document.getElementById('apiWrap').style.display='block';
+}
+
+function startPoll(invoiceId) {
+    let n=0;
+    pollInt=setInterval(async()=>{
+        if(++n>360){clearInterval(pollInt);document.getElementById('statusP').textContent='Timed out. Contact support if you paid.';return;}
+        const r=await fetch(`${BASE}/v1/payments/status/${invoiceId}`).then(r=>r.json()).catch(()=>null);
+        if(r?.status==='completed'&&r.api_key) showDone(r.api_key,r.plan);
+    },5000);
+}
+
+function closeModal(){clearInterval(pollInt);document.getElementById('ov').classList.remove('open');}
+</script>
+</body>
+</html>

@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Lunex — Script Whitelist Platform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#030507;--s1:#07090d;--s2:#0c0f14;--s3:#111519;
+  --bd:rgba(255,255,255,.06);--bd2:rgba(255,255,255,.1);
+  --acc:#4f8ef7;--acc2:#2563eb;
+  --accg:rgba(79,142,247,.12);--accg2:rgba(79,142,247,.06);
+  --grn:#22d18b;--grng:rgba(34,209,139,.1);
+  --pur:#9b6dff;--purg:rgba(155,109,255,.12);
+  --txt:#e2e8f0;--txt2:#64748b;--txt3:#2d3a4a;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--txt);font-family:'Inter',sans-serif;line-height:1.6;overflow-x:hidden}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px}
+
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:200;height:60px;display:flex;align-items:center;padding:0 40px;gap:8px;transition:.3s}
+nav.scrolled{background:rgba(3,5,7,.9);backdrop-filter:blur(24px);border-bottom:1px solid var(--bd)}
+.nav-logo{display:flex;align-items:center;gap:9px;text-decoration:none;margin-right:16px}
+.nav-logo-mark{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#4f8ef7,#9b6dff);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;box-shadow:0 0 20px rgba(79,142,247,.25)}
+.nav-logo-name{font-size:15px;font-weight:800;background:linear-gradient(90deg,#4f8ef7,#9b6dff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-.3px}
+.nav-tab{padding:7px 16px;border-radius:7px;font-size:13px;font-weight:500;color:var(--txt2);text-decoration:none;transition:.15s;cursor:pointer;border:none;background:none;font-family:'Inter',sans-serif}
+.nav-tab:hover{color:var(--txt);background:rgba(255,255,255,.05)}
+.nav-tab.active{color:var(--txt);background:rgba(255,255,255,.07)}
+.nav-space{flex:1}
+.nav-login{padding:7px 18px;border-radius:8px;font-size:13px;font-weight:600;color:var(--txt2);text-decoration:none;border:1px solid var(--bd2);transition:.15s;background:transparent}
+.nav-login:hover{color:var(--txt);border-color:var(--acc);background:var(--accg2)}
+.nav-getstarted{padding:7px 18px;border-radius:8px;font-size:13px;font-weight:700;color:#fff;background:linear-gradient(135deg,#4f8ef7,#9b6dff);text-decoration:none;transition:.2s;box-shadow:0 4px 14px rgba(79,142,247,.25)}
+.nav-getstarted:hover{box-shadow:0 6px 22px rgba(79,142,247,.4);transform:translateY(-1px)}
+
+/* HERO */
+.hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:80px 24px 60px;position:relative;overflow:hidden}
+.hero-bg{position:absolute;inset:0;pointer-events:none}
+.hero-bg-orb1{position:absolute;width:900px;height:700px;background:radial-gradient(ellipse,rgba(79,142,247,.07) 0%,transparent 65%);top:10%;left:50%;transform:translateX(-50%)}
+.hero-bg-orb2{position:absolute;width:600px;height:500px;background:radial-gradient(ellipse,rgba(155,109,255,.05) 0%,transparent 65%);top:20%;left:10%}
+.hero-bg-orb3{position:absolute;width:500px;height:400px;background:radial-gradient(ellipse,rgba(34,209,139,.04) 0%,transparent 65%);top:30%;right:5%}
+.hero-bg-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.015) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.015) 1px,transparent 1px);background-size:60px 60px;mask-image:radial-gradient(ellipse 80% 60% at 50% 0%,black 30%,transparent 100%)}
+
+.hero-badge{position:relative;z-index:1;display:inline-flex;align-items:center;gap:8px;padding:5px 14px 5px 6px;background:rgba(79,142,247,.08);border:1px solid rgba(79,142,247,.18);border-radius:100px;font-size:12px;font-weight:600;color:var(--acc);margin-bottom:28px}
+.badge-pip{width:20px;height:20px;border-radius:50%;background:var(--accg);display:flex;align-items:center;justify-content:center;font-size:10px}
+.badge-live{width:7px;height:7px;border-radius:50%;background:var(--grn);margin-right:2px;animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+.hero-h1{position:relative;z-index:1;font-size:clamp(40px,7vw,80px);font-weight:900;letter-spacing:-2.5px;line-height:1.01;margin-bottom:20px;max-width:900px}
+.hero-h1 .line2{display:block;background:linear-gradient(135deg,#4f8ef7 0%,#9b6dff 40%,#22d18b 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:grad-shift 6s ease infinite;background-size:200%}
+@keyframes grad-shift{0%,100%{background-position:0%}50%{background-position:100%}}
+.hero-p{position:relative;z-index:1;font-size:17px;color:var(--txt2);line-height:1.75;max-width:500px;margin-bottom:36px}
+.hero-ctas{position:relative;z-index:1;display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center;margin-bottom:64px}
+.btn-hero-p{padding:14px 30px;border-radius:10px;font-size:15px;font-weight:700;color:#fff;background:linear-gradient(135deg,#4f8ef7,#9b6dff);border:none;cursor:pointer;text-decoration:none;font-family:'Inter',sans-serif;transition:.2s;box-shadow:0 8px 28px rgba(79,142,247,.3)}
+.btn-hero-p:hover{transform:translateY(-2px);box-shadow:0 14px 40px rgba(79,142,247,.4)}
+.btn-hero-s{padding:14px 30px;border-radius:10px;font-size:15px;font-weight:600;color:var(--txt);background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);text-decoration:none;transition:.2s;font-family:'Inter',sans-serif}
+.btn-hero-s:hover{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.18)}
+
+.hero-pills{position:relative;z-index:1;display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center}
+.pill{display:flex;align-items:center;gap:7px;padding:8px 14px;background:var(--s2);border:1px solid var(--bd);border-radius:100px;font-size:12px;color:var(--txt2);font-weight:500}
+.pill-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+
+/* FEATURES */
+.features{padding:100px 40px;max-width:1160px;margin:0 auto}
+.sec-eyebrow{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--acc);margin-bottom:14px}
+.sec-h2{font-size:clamp(28px,4vw,44px);font-weight:800;letter-spacing:-1px;line-height:1.1;margin-bottom:14px}
+.sec-p{font-size:15px;color:var(--txt2);line-height:1.7;max-width:480px;margin-bottom:56px}
+.feat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--bd);border:1px solid var(--bd);border-radius:16px;overflow:hidden}
+.feat-cell{background:var(--s1);padding:30px;transition:.2s;position:relative}
+.feat-cell:hover{background:var(--s2)}
+.feat-cell::after{content:'';position:absolute;inset:0;border-radius:0;background:linear-gradient(135deg,var(--accg2),transparent);opacity:0;transition:.2s;pointer-events:none}
+.feat-cell:hover::after{opacity:1}
+.feat-icon{font-size:24px;margin-bottom:14px}
+.feat-title{font-size:14px;font-weight:700;margin-bottom:8px;letter-spacing:-.2px}
+.feat-desc{font-size:13px;color:var(--txt2);line-height:1.65}
+
+/* CODE */
+.code-section{padding:0 40px 100px;max-width:1160px;margin:0 auto}
+.code-card{border:1px solid var(--bd);border-radius:16px;overflow:hidden;background:var(--s1)}
+.code-topbar{padding:14px 18px;background:var(--s2);border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:6px}
+.dot-r{width:11px;height:11px;border-radius:50%;background:#ff5f57}
+.dot-y{width:11px;height:11px;border-radius:50%;background:#febc2e}
+.dot-g{width:11px;height:11px;border-radius:50%;background:#28c840}
+.code-label{margin-left:10px;font-size:12px;color:var(--txt2);font-weight:500}
+.code-body{padding:24px 28px;font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.85;overflow-x:auto}
+.kw{color:#4f8ef7}.str{color:#22d18b}.cmt{color:#3d5068;font-style:italic}.fn{color:#c678dd}.num{color:#e5c07b}.op{color:#56b6c2}
+
+/* PRICING */
+.pricing{padding:100px 40px;background:linear-gradient(180deg,transparent,rgba(79,142,247,.02),transparent)}
+.pricing-inner{max-width:1000px;margin:0 auto}
+.pricing-head{text-align:center;margin-bottom:56px}
+.coupon-hint{display:inline-flex;align-items:center;gap:7px;margin-top:14px;padding:6px 14px;background:var(--grng);border:1px solid rgba(34,209,139,.2);border-radius:100px;font-size:12px;font-weight:600;color:var(--grn)}
+.plans-row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.plan-card{background:var(--s1);border:1px solid var(--bd);border-radius:14px;padding:28px 24px;display:flex;flex-direction:column;transition:.2s;position:relative}
+.plan-card:hover{border-color:var(--bd2);transform:translateY(-3px)}
+.plan-card.pop{border-color:rgba(79,142,247,.4);background:linear-gradient(180deg,rgba(79,142,247,.05),var(--s1))}
+.plan-pop-tag{position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#4f8ef7,#9b6dff);color:#fff;font-size:11px;font-weight:700;padding:3px 16px;border-radius:100px;letter-spacing:.3px;white-space:nowrap}
+.plan-name{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--txt2);margin-bottom:10px}
+.plan-amount{font-size:40px;font-weight:900;letter-spacing:-1.5px;line-height:1}
+.plan-amount sup{font-size:18px;vertical-align:top;margin-top:7px;font-weight:700;color:var(--txt2)}
+.plan-mo{font-size:13px;color:var(--txt2);margin:6px 0 20px}
+.plan-sep{height:1px;background:var(--bd);margin-bottom:20px}
+.plan-list{list-style:none;display:flex;flex-direction:column;gap:10px;margin-bottom:24px;flex:1}
+.plan-list li{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--txt2)}
+.pl-check{width:17px;height:17px;border-radius:50%;background:var(--grng);border:1px solid rgba(34,209,139,.2);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--grn);flex-shrink:0}
+.plan-cta{padding:12px;border-radius:9px;border:none;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;transition:.2s;text-align:center;text-decoration:none;display:block}
+.plan-cta-acc{background:linear-gradient(135deg,#4f8ef7,#9b6dff);color:#fff;box-shadow:0 4px 16px rgba(79,142,247,.2)}.plan-cta-acc:hover{box-shadow:0 8px 28px rgba(79,142,247,.4);transform:translateY(-1px)}
+.plan-cta-ghost{background:var(--s2);color:var(--txt);border:1px solid var(--bd)}.plan-cta-ghost:hover{border-color:var(--acc);color:var(--acc)}
+
+/* FOOTER */
+.footer{border-top:1px solid var(--bd);padding:32px 40px;display:flex;align-items:center;gap:24px;flex-wrap:wrap}
+.footer-logo{display:flex;align-items:center;gap:8px;text-decoration:none}
+.fl-mark{width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,#4f8ef7,#9b6dff);display:flex;align-items:center;justify-content:center;font-size:11px}
+.fl-name{font-size:14px;font-weight:700;color:var(--txt)}
+.footer-space{flex:1}
+.footer-links{display:flex;gap:20px}
+.footer-links a{font-size:13px;color:var(--txt2);text-decoration:none;transition:.15s}.footer-links a:hover{color:var(--txt)}
+.footer-copy{font-size:12px;color:var(--txt3)}
+
+@media(max-width:800px){
+  nav{padding:0 20px}
+  .hero{padding:70px 20px 40px}
+  .features,.code-section,.pricing{padding-left:20px;padding-right:20px}
+  .feat-grid{grid-template-columns:1fr}
+  .plans-row{grid-template-columns:1fr}
+  .footer{padding:24px 20px}
+  .hero-h1{letter-spacing:-1.5px}
+}
+</style>
+</head>
+<body>
+
+<nav id="nav">
+  <a href="/" class="nav-logo">
+    <div class="nav-logo-mark">🛡</div>
+    <div class="nav-logo-name">Lunex</div>
+  </a>
+  <a href="/" class="nav-tab active">Home</a>
+  <a href="/login" class="nav-tab">Dashboard</a>
+  <a href="/pricing" class="nav-tab">Pricing</a>
+  <div class="nav-space"></div>
+  <a href="/login" class="nav-login">Log in</a>
+  <a href="/pricing" class="nav-getstarted">Get started</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-bg">
+    <div class="hero-bg-orb1"></div>
+    <div class="hero-bg-orb2"></div>
+    <div class="hero-bg-orb3"></div>
+    <div class="hero-bg-grid"></div>
+  </div>
+
+  <div class="hero-badge">
+    <div class="badge-pip">🛡</div>
+    <div class="badge-live"></div>
+    Luraph-level encryption · HWID locked
+  </div>
+
+  <h1 class="hero-h1">
+    The whitelist platform<br>
+    <span class="line2">built for serious sellers</span>
+  </h1>
+  <p class="hero-p">HWID-locked script delivery, Discord bot, crypto checkout, and a full key management dashboard — everything you need to sell Roblox scripts professionally.</p>
+  <div class="hero-ctas">
+    <a href="/pricing" class="btn-hero-p">Start selling →</a>
+    <a href="/login" class="btn-hero-s">View dashboard</a>
+  </div>
+  <div class="hero-pills">
+    <div class="pill"><div class="pill-dot" style="background:var(--grn)"></div>5-pass XOR encryption</div>
+    <div class="pill"><div class="pill-dot" style="background:var(--acc)"></div>HWID device lock</div>
+    <div class="pill"><div class="pill-dot" style="background:var(--pur)"></div>Discord bot included</div>
+    <div class="pill"><div class="pill-dot" style="background:var(--grn)"></div>Crypto payments</div>
+    <div class="pill"><div class="pill-dot" style="background:var(--acc)"></div>50+ concurrent users</div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features">
+  <div class="sec-eyebrow">Why Lunex</div>
+  <h2 class="sec-h2">Everything you need, nothing you don't</h2>
+  <p class="sec-p">Built specifically for Roblox script sellers who want a professional setup that actually works.</p>
+  <div class="feat-grid">
+    <div class="feat-cell">
+      <div class="feat-icon">🔒</div>
+      <div class="feat-title">Luraph-level encryption</div>
+      <div class="feat-desc">5-pass XOR cipher with RC4 substitution box, keyed per-project. Every upload gets unique random session keys. Impossible to reverse without the master secret.</div>
+    </div>
+    <div class="feat-cell">
+      <div class="feat-icon">🔑</div>
+      <div class="feat-title">HWID-locked keys</div>
+      <div class="feat-desc">Each key binds to one device on first execution. Users cannot share keys. You control HWID resets from Discord or the dashboard.</div>
+    </div>
+    <div class="feat-cell">
+      <div class="feat-icon">🤖</div>
+      <div class="feat-title">Full Discord bot</div>
+      <div class="feat-desc">Create keys, revoke access, reset HWIDs, view stats — all via slash commands. Buyers redeem keys and get their loader directly in DMs.</div>
+    </div>
+    <div class="feat-cell">
+      <div class="feat-icon">💰</div>
+      <div class="feat-title">Crypto checkout</div>
+      <div class="feat-desc">Accept BTC, ETH, USDT, LTC, SOL and 100+ coins. Accounts are created automatically after blockchain confirmation. Zero manual work.</div>
+    </div>
+    <div class="feat-cell">
+      <div class="feat-icon">⚡</div>
+      <div class="feat-title">Built for scale</div>
+      <div class="feat-desc">In-memory caching serves 50 users simultaneously in milliseconds without hammering the database. Rate limited and hardened against abuse.</div>
+    </div>
+    <div class="feat-cell">
+      <div class="feat-icon">📊</div>
+      <div class="feat-title">Clean dashboard</div>
+      <div class="feat-desc">Manage all projects, keys and users from one place. See execution counts, HWID status, expiry dates and more — always up to date.</div>
+    </div>
+  </div>
+</section>
+
+<!-- CODE PREVIEW -->
+<section class="code-section">
+  <div class="code-card">
+    <div class="code-topbar">
+      <div class="dot-r"></div><div class="dot-y"></div><div class="dot-g"></div>
+      <span class="code-label">loader.lua — what your buyers execute</span>
+    </div>
+    <div class="code-body">
+<span class="cmt">-- Paste this in your executor. Replace KEY_HERE with your key.</span>
+<span class="kw">local</span> script_key <span class="op">=</span> <span class="str">"LUNEX-A1B2C3-D4E5F6-G7H8I9"</span>
+<span class="fn">loadstring</span>(<span class="fn">game</span><span class="op">:</span><span class="fn">HttpGet</span>(
+  <span class="str">"https://luamor-v2-production.up.railway.app/v1/auth"</span>
+  <span class="op">..</span> <span class="str">"?key="</span>  <span class="op">..</span> script_key
+  <span class="op">..</span> <span class="str">"&hwid="</span> <span class="op">..</span> <span class="fn">game</span><span class="op">:</span><span class="fn">GetService</span>(<span class="str">"RbxAnalyticsService"</span>)<span class="op">:</span><span class="fn">GetClientId</span>()
+))()
+
+<span class="cmt">-- On first run: HWID locks to this device automatically</span>
+<span class="cmt">-- If HWID doesn't match: error("Lunex: HWID mismatch — run /resethwid")</span></div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="pricing">
+  <div class="pricing-inner">
+    <div class="pricing-head">
+      <div class="sec-eyebrow" style="text-align:center">Pricing</div>
+      <h2 class="sec-h2" style="text-align:center;max-width:100%">Simple, transparent pricing</h2>
+      <div class="coupon-hint">🎁 Use code <strong style="margin:0 4px">FREE99</strong> for a completely free month</div>
+    </div>
+    <div class="plans-row">
+      <div class="plan-card">
+        <div class="plan-name">Starter</div>
+        <div class="plan-amount"><sup>$</sup>4<span style="font-size:22px">.99</span></div>
+        <div class="plan-mo">per month</div>
+        <div class="plan-sep"></div>
+        <ul class="plan-list">
+          <li><div class="pl-check">✓</div>3 projects</li>
+          <li><div class="pl-check">✓</div>500 whitelist keys</li>
+          <li><div class="pl-check">✓</div>HWID-locked delivery</li>
+          <li><div class="pl-check">✓</div>Discord bot</li>
+          <li><div class="pl-check">✓</div>Dashboard access</li>
+        </ul>
+        <a href="/pricing?plan=starter" class="plan-cta plan-cta-ghost">Get Starter</a>
+      </div>
+      <div class="plan-card pop">
+        <div class="plan-pop-tag">Most Popular</div>
+        <div class="plan-name">Pro</div>
+        <div class="plan-amount"><sup>$</sup>9<span style="font-size:22px">.99</span></div>
+        <div class="plan-mo">per month</div>
+        <div class="plan-sep"></div>
+        <ul class="plan-list">
+          <li><div class="pl-check">✓</div>10 projects</li>
+          <li><div class="pl-check">✓</div>5,000 whitelist keys</li>
+          <li><div class="pl-check">✓</div>HWID-locked delivery</li>
+          <li><div class="pl-check">✓</div>Discord bot</li>
+          <li><div class="pl-check">✓</div>Dashboard access</li>
+          <li><div class="pl-check">✓</div>Priority support</li>
+        </ul>
+        <a href="/pricing?plan=pro" class="plan-cta plan-cta-acc">Get Pro</a>
+      </div>
+      <div class="plan-card">
+        <div class="plan-name">Elite</div>
+        <div class="plan-amount"><sup>$</sup>19<span style="font-size:22px">.99</span></div>
+        <div class="plan-mo">per month</div>
+        <div class="plan-sep"></div>
+        <ul class="plan-list">
+          <li><div class="pl-check">✓</div>50 projects</li>
+          <li><div class="pl-check">✓</div>50,000 whitelist keys</li>
+          <li><div class="pl-check">✓</div>HWID-locked delivery</li>
+          <li><div class="pl-check">✓</div>Discord bot</li>
+          <li><div class="pl-check">✓</div>Dashboard access</li>
+          <li><div class="pl-check">✓</div>Priority support</li>
+          <li><div class="pl-check">✓</div>Unlimited obfuscations</li>
+        </ul>
+        <a href="/pricing?plan=elite" class="plan-cta plan-cta-ghost">Get Elite</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <a href="/" class="footer-logo">
+    <div class="fl-mark">🛡</div>
+    <div class="fl-name">Lunex</div>
+  </a>
+  <div class="footer-space"></div>
+  <div class="footer-links">
+    <a href="/">Home</a>
+    <a href="/pricing">Pricing</a>
+    <a href="/login">Dashboard</a>
+  </div>
+  <div class="footer-copy">© 2026 Lunex</div>
+</footer>
+
+<script>
+// Scroll nav effect
+window.addEventListener('scroll',()=>{
+  document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 20);
+},{ passive:true });
+</script>
+</body>
+</html>

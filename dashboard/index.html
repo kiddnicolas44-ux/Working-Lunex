@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Lunex — Script Whitelist</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#050709;
+  --s1:#0a0d12;
+  --s2:#0f1318;
+  --s3:#141920;
+  --s4:#1a2130;
+  --bd:#1e2738;
+  --bd2:#253047;
+  --acc:#4e8cff;
+  --acc2:#2563eb;
+  --accg:rgba(78,140,255,.1);
+  --accg2:rgba(78,140,255,.06);
+  --grn:#22c55e;
+  --grng:rgba(34,197,94,.1);
+  --red:#ef4444;
+  --redg:rgba(239,68,68,.1);
+  --yel:#f59e0b;
+  --yelg:rgba(245,158,11,.1);
+  --pur:#a855f7;
+  --purg:rgba(168,85,247,.1);
+  --txt:#e2e8f0;
+  --txt2:#94a3b8;
+  --txt3:#475569;
+  --sw:240px;
+  --r:10px;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--txt);font-family:'Inter',sans-serif;min-height:100vh;display:flex;font-size:14px;line-height:1.5;overflow-x:hidden}
+
+/* ─ SCROLLBAR ─ */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--s1)}
+::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--txt3)}
+
+/* ─ SIDEBAR ─ */
+#sb{width:var(--sw);min-width:var(--sw);height:100vh;position:fixed;top:0;left:0;background:var(--s1);border-right:1px solid var(--bd);display:flex;flex-direction:column;z-index:100;transition:.25s}
+.sb-logo{padding:20px 18px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:11px}
+.sb-icon{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#4e8cff,#a855f7);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;box-shadow:0 4px 14px rgba(78,140,255,.25)}
+.sb-title{font-size:16px;font-weight:800;letter-spacing:-.4px;background:linear-gradient(90deg,#4e8cff,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.sb-subtitle{font-size:10px;color:var(--txt3);font-weight:500;margin-top:1px}
+.sb-nav{padding:12px 10px;flex:1;display:flex;flex-direction:column;gap:1px;overflow-y:auto}
+.sb-section{font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.8px;padding:10px 10px 5px}
+.ni{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;color:var(--txt2);transition:.15s;user-select:none;text-decoration:none}
+.ni:hover{background:var(--s3);color:var(--txt)}
+.ni.on{background:var(--accg);color:var(--acc);font-weight:600}
+.ni-ic{font-size:15px;width:18px;text-align:center;flex-shrink:0}
+.sb-foot{padding:12px 10px;border-top:1px solid var(--bd)}
+.u-card{display:flex;align-items:center;gap:10px;padding:10px 11px;background:var(--s3);border:1px solid var(--bd);border-radius:9px}
+.u-av{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#4e8cff,#a855f7);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0}
+.u-em{font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.u-pl{font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.5px;margin-top:1px}
+
+/* ─ MAIN ─ */
+#main{margin-left:var(--sw);flex:1;min-height:100vh;display:flex;flex-direction:column}
+.topbar{height:56px;border-bottom:1px solid var(--bd);display:flex;align-items:center;padding:0 28px;background:var(--s1);position:sticky;top:0;z-index:50;gap:12px}
+.topbar-left{flex:1}
+.topbar-bc{font-size:12px;color:var(--txt3)}
+.topbar-bc b{color:var(--txt);font-weight:600}
+.topbar-title{font-size:17px;font-weight:700;letter-spacing:-.3px;margin-top:1px}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.online-pill{display:flex;align-items:center;gap:6px;padding:5px 10px;background:var(--grng);border:1px solid rgba(34,197,94,.2);border-radius:20px;font-size:11px;font-weight:600;color:var(--grn)}
+.online-dot{width:6px;height:6px;border-radius:50%;background:var(--grn);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.content{padding:28px;flex:1;max-width:1200px}
+.page{display:none}.page.on{display:block}
+.page-header{margin-bottom:24px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.page-header-l .ph-t{font-size:22px;font-weight:800;letter-spacing:-.4px}
+.page-header-l .ph-s{font-size:13px;color:var(--txt2);margin-top:3px}
+.page-header-r{display:flex;gap:8px;flex-shrink:0;margin-top:4px}
+
+/* ─ STAT CARDS ─ */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:26px}
+.stat{background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);padding:18px;display:flex;gap:14px;align-items:flex-start;transition:.15s;position:relative;overflow:hidden}
+.stat:hover{border-color:var(--bd2)}
+.stat::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;opacity:0;transition:.15s}
+.stat:hover::before{opacity:1}
+.stat-0::before{background:linear-gradient(90deg,#22c55e,#16a34a)}
+.stat-1::before{background:linear-gradient(90deg,#4e8cff,#2563eb)}
+.stat-2::before{background:linear-gradient(90deg,#a855f7,#7c3aed)}
+.stat-3::before{background:linear-gradient(90deg,#f59e0b,#d97706)}
+.stat-ic{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.stat-body{flex:1;min-width:0}
+.stat-val{font-size:26px;font-weight:800;letter-spacing:-.5px;line-height:1}
+.stat-lbl{font-size:11px;color:var(--txt2);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-top:4px}
+.stat-bar{height:3px;background:var(--bd);border-radius:2px;margin-top:12px;overflow:hidden}
+.stat-fill{height:100%;border-radius:2px;transition:width .6s cubic-bezier(.4,0,.2,1)}
+
+/* ─ CHART ─ */
+.chart-card{background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);padding:22px;margin-bottom:26px}
+.chart-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px}
+.chart-title{font-size:15px;font-weight:700}
+.chart-sub{font-size:12px;color:var(--txt2);margin-top:2px}
+.chart-bars{display:flex;align-items:flex-end;gap:5px;height:80px}
+.cb{flex:1;border-radius:3px 3px 0 0;min-height:4px;transition:.3s;cursor:pointer;position:relative}
+.cb:hover{filter:brightness(1.3)}
+.cb-label{position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:8px;color:var(--txt3);white-space:nowrap}
+.chart-x{display:flex;gap:5px;margin-top:20px}
+.chart-x-item{flex:1;text-align:center;font-size:8px;color:var(--txt3)}
+
+/* ─ CARD ─ */
+.card{background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);padding:22px}
+.card-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.card-t{font-size:14px;font-weight:700}
+.card-s{font-size:12px;color:var(--txt2);margin-top:1px}
+.sep{height:1px;background:var(--bd);margin:16px 0}
+
+/* ─ PROJECT CARD ─ */
+.proj{background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);margin-bottom:12px;overflow:hidden;transition:.15s}
+.proj:hover{border-color:var(--bd2)}
+.proj-head{display:flex;align-items:center;gap:14px;padding:16px 20px;border-bottom:1px solid var(--bd)}
+.proj-status{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.proj-info{flex:1;min-width:0}
+.proj-name{font-size:14px;font-weight:700}
+.proj-id{font-size:11px;color:var(--txt3);font-family:'JetBrains Mono',monospace;margin-top:2px}
+.proj-acts{display:flex;gap:6px;flex-wrap:wrap}
+.proj-table-wrap{padding:0 6px 8px}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.5px;padding:10px 14px;border-bottom:1px solid var(--bd)}
+td{padding:11px 14px;border-bottom:1px solid var(--bd);font-size:13px;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:rgba(255,255,255,.02)}
+
+/* ─ TOGGLE ─ */
+.tog{width:36px;height:20px;border-radius:10px;background:var(--txt3);position:relative;cursor:pointer;transition:.2s;display:inline-block;flex-shrink:0}
+.tog.on{background:var(--grn)}
+.tog::after{content:'';width:15px;height:15px;border-radius:50%;background:#fff;position:absolute;top:2.5px;left:2.5px;transition:.2s;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.tog.on::after{left:18.5px}
+
+/* ─ BADGE ─ */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.4px}
+.b-g{background:var(--grng);color:var(--grn)}
+.b-r{background:var(--redg);color:var(--red)}
+.b-b{background:var(--accg);color:var(--acc)}
+.b-p{background:var(--purg);color:var(--pur)}
+.b-y{background:var(--yelg);color:var(--yel)}
+
+/* ─ BUTTONS ─ */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:600;font-family:'Inter',sans-serif;transition:.15s;white-space:nowrap;letter-spacing:-.1px}
+.btn-p{background:var(--acc);color:#fff}.btn-p:hover{background:var(--acc2);box-shadow:0 4px 12px rgba(78,140,255,.3)}
+.btn-g{background:var(--grn);color:#000;font-weight:700}.btn-g:hover{filter:brightness(1.1)}
+.btn-r{background:var(--red);color:#fff}.btn-r:hover{filter:brightness(1.1)}
+.btn-ghost{background:transparent;color:var(--txt2);border:1px solid var(--bd)}.btn-ghost:hover{background:var(--s3);border-color:var(--bd2);color:var(--txt)}
+.btn-sm{padding:5px 12px;font-size:12px}
+.btn-xs{padding:4px 9px;font-size:11px}
+
+/* ─ FORMS ─ */
+.fg{margin-bottom:14px}
+.lbl{display:block;font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.inp{background:var(--s3);border:1px solid var(--bd);color:var(--txt);padding:10px 13px;border-radius:8px;width:100%;font-size:13px;outline:none;font-family:'Inter',sans-serif;transition:.15s}
+.inp:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--accg)}
+.inp::placeholder{color:var(--txt3)}
+textarea.inp{resize:vertical;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.6}
+select.inp{cursor:pointer}
+
+/* ─ MODAL ─ */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:500;backdrop-filter:blur(6px);padding:20px}
+.ov.open{display:flex}
+.modal{background:var(--s2);border:1px solid var(--bd2);border-radius:14px;padding:28px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 40px 80px rgba(0,0,0,.6)}
+.modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+.modal-title{font-size:18px;font-weight:800;letter-spacing:-.3px}
+.mclose{background:var(--s3);border:1px solid var(--bd);color:var(--txt2);width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:.15s}
+.mclose:hover{color:var(--txt);border-color:var(--bd2)}
+.modal-note{background:var(--s3);border:1px solid var(--bd);border-left:3px solid var(--acc);border-radius:8px;padding:12px 14px;font-size:12px;color:var(--txt2);margin-bottom:18px;line-height:1.6}
+.modal-note strong{color:var(--txt)}
+
+/* ─ LOGIN ─ */
+#login{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px}
+.login-bg{position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 20% 50%,rgba(78,140,255,.06),transparent 60%),radial-gradient(ellipse 60% 50% at 80% 30%,rgba(168,85,247,.05),transparent 60%)}
+.login-wrap{position:relative;z-index:1;width:100%;max-width:420px;margin-top:60px}
+.login-brand{display:flex;align-items:center;gap:12px;margin-bottom:36px}
+.login-brand-ic{width:44px;height:44px;background:linear-gradient(135deg,#4e8cff,#a855f7);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 6px 20px rgba(78,140,255,.3)}
+.login-brand-n{font-size:24px;font-weight:800;background:linear-gradient(90deg,#4e8cff,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.login-card{background:var(--s2);border:1px solid var(--bd2);border-radius:16px;padding:36px;box-shadow:0 40px 80px rgba(0,0,0,.5)}
+.login-title{font-size:20px;font-weight:800;margin-bottom:6px;letter-spacing:-.3px}
+.login-sub{font-size:13px;color:var(--txt2);margin-bottom:28px;line-height:1.5}
+.login-err{background:var(--redg);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--red);margin-bottom:14px;display:none}
+
+/* ─ ACCOUNT ─ */
+.acc-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.dr{padding:12px 0;border-bottom:1px solid var(--bd);display:flex;flex-direction:column;gap:5px}
+.dr:last-child{border-bottom:none}
+.dr-l{font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.5px}
+.dr-v{font-size:13px;font-weight:600}
+.api-row{display:flex;align-items:center;gap:8px;margin-top:4px}
+.api-val{font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--s3);border:1px solid var(--bd);padding:7px 11px;border-radius:7px;flex:1;color:var(--txt3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ─ LOADER BOX ─ */
+.loader-box{background:var(--s3);border:1px solid var(--bd);border-radius:9px;padding:14px;font-family:'JetBrains Mono',monospace;font-size:11px;white-space:pre-wrap;word-break:break-all;color:var(--acc);line-height:1.7;margin-top:10px}
+
+/* ─ TOASTS ─ */
+#toasts{position:fixed;bottom:24px;right:24px;display:flex;flex-direction:column;gap:8px;z-index:9999;pointer-events:none}
+.toast{background:var(--s2);border:1px solid var(--bd2);border-radius:10px;padding:12px 16px;font-size:13px;font-weight:600;min-width:250px;max-width:380px;animation:tIn .2s cubic-bezier(.4,0,.2,1);display:flex;align-items:center;gap:10px;pointer-events:auto;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.toast-ok{border-left:3px solid var(--grn)}
+.toast-err{border-left:3px solid var(--red)}
+.toast-info{border-left:3px solid var(--acc)}
+@keyframes tIn{from{transform:translateX(60px) scale(.95);opacity:0}to{transform:translateX(0) scale(1);opacity:1}}
+
+/* ─ USERS TABLE ─ */
+.users-table-wrap{overflow-x:auto}
+.search-bar{display:flex;gap:8px;align-items:center;margin-bottom:16px}
+.tabs-row{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+
+/* ─ MONO ─ */
+.mono{font-family:'JetBrains Mono',monospace;font-size:11px}
+
+/* ─ UTIL ─ */
+.hidden{display:none!important}
+.flex{display:flex;align-items:center;gap:8px}
+.grow{flex:1}
+.code{font-family:'JetBrains Mono',monospace;background:var(--s3);padding:2px 7px;border-radius:5px;font-size:11px}
+.empty-state{text-align:center;padding:48px 20px;color:var(--txt3);font-size:13px}
+.empty-state-icon{font-size:32px;margin-bottom:12px}
+
+/* ─ TOP NAV (login page) ─ */
+.top-nav{position:fixed;top:0;left:0;right:0;z-index:200;height:60px;display:flex;align-items:center;padding:0 32px;gap:8px;background:rgba(3,5,7,.9);backdrop-filter:blur(24px);border-bottom:1px solid var(--bd)}
+.tn-logo{display:flex;align-items:center;gap:9px;text-decoration:none;margin-right:16px}
+.tn-mark{width:28px;height:28px;border-radius:7px;background:linear-gradient(135deg,#4e8cff,#9b6dff);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.tn-name{font-size:15px;font-weight:800;background:linear-gradient(90deg,#4e8cff,#9b6dff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-.3px}
+.tn-tab{padding:6px 14px;border-radius:7px;font-size:13px;font-weight:500;color:var(--txt2);text-decoration:none;transition:.15s}
+.tn-tab:hover{color:var(--txt);background:rgba(255,255,255,.05)}
+.tn-tab.on{color:var(--txt);background:rgba(255,255,255,.07)}
+.tn-space{flex:1}
+.tn-buy{padding:7px 16px;border-radius:8px;font-size:13px;font-weight:700;color:#fff;background:linear-gradient(135deg,#4e8cff,#9b6dff);text-decoration:none;transition:.2s;box-shadow:0 4px 12px rgba(78,140,255,.25)}
+.tn-buy:hover{box-shadow:0 6px 20px rgba(78,140,255,.4)}
+
+/* ─ OBF PAGE ─ */
+.obf-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;height:calc(100vh - 180px);min-height:500px}
+.obf-pane{background:var(--s2);border:1px solid var(--bd);border-radius:12px;display:flex;flex-direction:column;overflow:hidden}
+.obf-pane-head{padding:14px 18px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.obf-pane-title{font-size:13px;font-weight:700}
+.obf-pane-sub{font-size:11px;color:var(--txt2)}
+.obf-textarea{flex:1;background:transparent;border:none;color:var(--txt);font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.7;padding:16px 18px;resize:none;outline:none;width:100%}
+.obf-textarea::placeholder{color:var(--txt3)}
+.obf-textarea:read-only{color:var(--grn)}
+.obf-footer{padding:12px 18px;border-top:1px solid var(--bd);display:flex;align-items:center;gap:8px;flex-shrink:0}
+.obf-proj-sel{background:var(--s3);border:1px solid var(--bd);color:var(--txt);padding:7px 12px;border-radius:8px;font-size:12px;font-family:'Inter',sans-serif;outline:none;flex:1;cursor:pointer}
+.obf-proj-sel:focus{border-color:var(--acc)}
+.obf-stat{font-size:11px;color:var(--txt2);padding:5px 10px;background:var(--s3);border:1px solid var(--bd);border-radius:6px}
+.obf-stat.ok{color:var(--grn);border-color:rgba(34,209,139,.2);background:var(--grng)}
+.obf-stat.err{color:var(--red);border-color:rgba(239,68,68,.2);background:var(--redg)}
+@media(max-width:900px){.obf-grid{grid-template-columns:1fr;height:auto}}
+
+/* ─ RESPONSIVE ─ */
+@media(max-width:900px){
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+  .acc-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login">
+  <!-- Top nav visible on login page -->
+  <nav class="top-nav">
+    <a href="/" class="tn-logo"><div class="tn-mark">🛡</div><div class="tn-name">Lunex</div></a>
+    <a href="/" class="tn-tab">Home</a>
+    <a href="/login" class="tn-tab on">Dashboard</a>
+    <a href="/pricing" class="tn-tab">Pricing</a>
+    <div class="tn-space"></div>
+    <a href="/pricing" class="tn-buy">Get started</a>
+  </nav>
+  <div class="login-bg"></div>
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="login-title">Welcome back</div>
+      <div class="login-sub">Paste your API key to access your dashboard.</div>
+      <div class="login-err" id="loginErr"></div>
+      <div class="fg"><label class="lbl">API Key</label><input class="inp" id="apiIn" type="password" placeholder="Your API key from the dashboard..." autocomplete="off"/></div>
+      <button class="btn btn-p" style="width:100%;padding:11px;font-size:14px;font-weight:700" id="loginBtn" onclick="doLogin()">Sign In →</button>
+      <p style="text-align:center;font-size:12px;color:var(--txt3);margin-top:16px">Encrypted connection · HWID-locked scripts</p>
+      <p style="text-align:center;font-size:12px;color:var(--txt3);margin-top:8px">Don't have an account? <a href="/pricing" style="color:var(--acc);font-weight:600">Get started →</a></p>
+    </div>
+  </div>
+</div>
+
+<!-- SIDEBAR -->
+<div id="sb">
+  <div class="sb-logo">
+    <div class="sb-icon">🛡</div>
+    <div>
+      <div class="sb-title">Lunex</div>
+      <div class="sb-subtitle">Script Whitelist</div>
+    </div>
+  </div>
+  <div class="sb-nav">
+    <div class="sb-section">Main</div>
+    <div class="ni on" onclick="goPage('dashboard',this)"><span class="ni-ic">📊</span>Dashboard</div>
+    <div class="ni" onclick="goPage('projects',this)"><span class="ni-ic">📁</span>Projects</div>
+    <div class="ni" onclick="goPage('users',this)"><span class="ni-ic">👥</span>Users</div>
+    <div class="ni" onclick="goPage('obf',this)"><span class="ni-ic">🔐</span>Obfuscator</div>
+    <div class="sb-section">Account</div>
+    <div class="ni" onclick="goPage('account',this)"><span class="ni-ic">👤</span>Profile</div>
+    <div class="sep" style="height:1px;background:var(--bd);margin:6px 0"></div>
+    <a href="/pricing" class="ni" style="color:var(--acc)"><span class="ni-ic">💳</span>Pricing</a>
+    <a href="/" class="ni"><span class="ni-ic">🏠</span>Homepage</a>
+    <div class="ni" onclick="logout()" style="color:var(--red)"><span class="ni-ic">🚪</span>Sign Out</div>
+  </div>
+  <div class="sb-foot">
+    <div class="u-card">
+      <div class="u-av" id="sAv">?</div>
+      <div style="flex:1;min-width:0">
+        <div class="u-em" id="sEm">Loading…</div>
+        <div class="u-pl" id="sPl">—</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-bc">Lunex / <b id="topT">Dashboard</b></div>
+    </div>
+    <div class="topbar-right">
+      <div class="online-pill"><div class="online-dot"></div>Online</div>
+      <div id="topU" style="font-size:12px;color:var(--txt3)"></div>
+    </div>
+  </div>
+  <div class="content">
+
+    <!-- DASHBOARD -->
+    <div id="page-dashboard" class="page on">
+      <div class="page-header">
+        <div class="page-header-l">
+          <div class="ph-t">Dashboard</div>
+          <div class="ph-s">Overview of your whitelist service</div>
+        </div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat stat-0"><div class="stat-ic" style="background:var(--grng)">📝</div><div class="stat-body"><div class="stat-val" id="s-p">—</div><div class="stat-lbl">Projects</div><div class="stat-bar"><div class="stat-fill" id="fp-p" style="background:var(--grn);width:0%"></div></div></div></div>
+        <div class="stat stat-1"><div class="stat-ic" style="background:var(--accg)">👥</div><div class="stat-body"><div class="stat-val" id="s-k">—</div><div class="stat-lbl">Total Users</div><div class="stat-bar"><div class="stat-fill" id="fp-k" style="background:var(--acc);width:0%"></div></div></div></div>
+        <div class="stat stat-2"><div class="stat-ic" style="background:var(--purg)">⚡</div><div class="stat-body"><div class="stat-val" id="s-e">—</div><div class="stat-lbl">Executions</div></div></div>
+        <div class="stat stat-3"><div class="stat-ic" style="background:var(--yelg)">🔒</div><div class="stat-body"><div class="stat-val" id="s-o">—</div><div class="stat-lbl">Obfs Used</div></div></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-head">
+          <div>
+            <div class="chart-title">Script Executions</div>
+            <div class="chart-sub">Activity over the last 14 days</div>
+          </div>
+        </div>
+        <div class="chart-bars" id="cbars"></div>
+        <div class="chart-x" id="chartX"></div>
+      </div>
+    </div>
+
+    <!-- PROJECTS -->
+    <div id="page-projects" class="page">
+      <div class="page-header">
+        <div class="page-header-l"><div class="ph-t">Projects</div><div class="ph-s">Manage your scripts and loaders</div></div>
+        <div class="page-header-r"><button class="btn btn-p" onclick="openM('newProj')">+ New Project</button></div>
+      </div>
+      <div id="projList"></div>
+    </div>
+
+    <!-- USERS -->
+    <div id="page-users" class="page">
+      <div class="page-header">
+        <div class="page-header-l"><div class="ph-t">Users</div><div class="ph-s">Manage whitelisted keys</div></div>
+        <div class="page-header-r">
+          <button class="btn btn-g" onclick="openAddUser()">+ Add User</button>
+          <button class="btn btn-ghost" onclick="openMassGen()">⚡ Mass Generate</button>
+        </div>
+      </div>
+      <div class="tabs-row" id="utabs"></div>
+      <div id="upanel"></div>
+    </div>
+
+    <!-- OBFUSCATOR -->
+    <div id="page-obf" class="page">
+      <div class="page-header">
+        <div class="page-header-l">
+          <div class="ph-t">Obfuscator</div>
+          <div class="ph-s">Paste your source — encrypted output goes right to your project</div>
+        </div>
+        <div class="page-header-r">
+          <select class="obf-proj-sel" id="obf-proj" style="width:180px"></select>
+          <button class="btn btn-p" id="obfBtn" onclick="runObf()">🔐 Obfuscate & Upload</button>
+        </div>
+      </div>
+      <div class="obf-grid">
+        <div class="obf-pane">
+          <div class="obf-pane-head">
+            <div>
+              <div class="obf-pane-title">Source Code</div>
+              <div class="obf-pane-sub">Paste your original Lua script</div>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="document.getElementById('obf-in').value='';document.getElementById('obf-in').focus()">Clear</button>
+          </div>
+          <textarea class="obf-textarea" id="obf-in" placeholder="-- Paste your Lua script here...&#10;&#10;print(&quot;hello world&quot;)&#10;game:GetService(&quot;Players&quot;).LocalPlayer.Character.Humanoid.WalkSpeed = 16"></textarea>
+          <div class="obf-footer">
+            <div class="obf-stat" id="obf-in-stat">0 lines · 0 chars</div>
+            <div style="flex:1"></div>
+            <button class="btn btn-ghost btn-sm" onclick="pasteClip()">📋 Paste</button>
+          </div>
+        </div>
+        <div class="obf-pane">
+          <div class="obf-pane-head">
+            <div>
+              <div class="obf-pane-title">Encrypted Output</div>
+              <div class="obf-pane-sub">5-pass XOR · RC4 sbox · Anti-debug · Anti-tamper</div>
+            </div>
+            <button class="btn btn-ghost btn-sm" id="copyObfBtn" onclick="copyObf()" style="display:none">Copy</button>
+          </div>
+          <textarea class="obf-textarea" id="obf-out" readonly placeholder="-- Encrypted output will appear here after obfuscation..."></textarea>
+          <div class="obf-footer">
+            <div class="obf-stat" id="obf-out-stat">Waiting for input</div>
+            <div style="flex:1"></div>
+            <div class="obf-stat" id="obf-loader-wrap" style="display:none">
+              <span style="color:var(--txt2)">Loader: </span>
+              <span id="obf-loader" style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--acc)"></span>
+              <button onclick="copyLoader()" style="background:none;border:none;color:var(--acc);cursor:pointer;font-size:11px;margin-left:6px">copy</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACCOUNT -->
+    <div id="page-account" class="page">
+      <div class="page-header"><div class="page-header-l"><div class="ph-t">Profile</div><div class="ph-s">Your account details and API key</div></div></div>
+      <div class="acc-grid">
+        <div class="card">
+          <div class="card-h"><div><div class="card-t">Account Details</div></div></div>
+          <div class="dr"><div class="dr-l">Email</div><div class="dr-v" id="a-em">—</div></div>
+          <div class="dr"><div class="dr-l">Plan</div><div class="dr-v" id="a-pl">—</div></div>
+          <div class="dr"><div class="dr-l">Member Since</div><div class="dr-v" id="a-si">—</div></div>
+          <div class="dr">
+            <div class="dr-l">API Key</div>
+            <div class="api-row">
+              <div class="api-val" id="a-key">••••••••••••••••••••••••</div>
+              <button class="btn btn-ghost btn-sm" onclick="toggleKey()">Show</button>
+              <button class="btn btn-ghost btn-sm" onclick="copyKey()">Copy</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h"><div><div class="card-t">Statistics</div></div></div>
+          <div class="dr"><div class="dr-l">Total Projects</div><div class="dr-v" id="a-sp">—</div></div>
+          <div class="dr"><div class="dr-l">Total Keys</div><div class="dr-v" id="a-sk">—</div></div>
+          <div class="dr"><div class="dr-l">Total Executions</div><div class="dr-v" id="a-se">—</div></div>
+          <div class="dr"><div class="dr-l">Obfs Used This Month</div><div class="dr-v" id="a-so">—</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODALS -->
+<div id="ov" class="ov" onclick="if(event.target===this)closeM()">
+
+  <div id="m-newProj" class="modal hidden">
+    <div class="modal-head"><div class="modal-title">New Project</div><button class="mclose" onclick="closeM()">×</button></div>
+    <div class="modal-note">Give your project a name and optionally paste your Lua script. You can upload or update the script later.</div>
+    <div class="fg"><label class="lbl">Project Name</label><input class="inp" id="np-n" placeholder="My Roblox Script"/></div>
+    <div class="fg"><label class="lbl">Lua Source (optional)</label><textarea class="inp" id="np-s" rows="8" placeholder="-- paste your Lua script here"></textarea></div>
+    <div class="fg"><label class="lbl">Access Mode</label><select class="inp" id="np-f"><option value="false">Key Required</option><option value="true">Free For All</option></select></div>
+    <div id="np-err" style="color:var(--red);font-size:12px;margin-bottom:12px"></div>
+    <button class="btn btn-p" style="width:100%;padding:11px" onclick="createProj()">Create Project</button>
+  </div>
+
+  <div id="m-uploadScript" class="modal hidden">
+    <div class="modal-head"><div class="modal-title">Update Script</div><button class="mclose" onclick="closeM()">×</button></div>
+    <div class="modal-note">Your script will be stored securely. Scripts are encrypted with a project-specific key.</div>
+    <div class="fg"><label class="lbl">Lua Source</label><textarea class="inp" id="us-s" rows="12" placeholder="-- paste your Lua script here"></textarea></div>
+    <button class="btn btn-p" style="width:100%;padding:11px" id="usBtn" onclick="uploadScript()">Upload Script</button>
+  </div>
+
+  <div id="m-loader" class="modal hidden">
+    <div class="modal-head"><div class="modal-title">Script Loader</div><button class="mclose" onclick="closeM()">×</button></div>
+    <div class="modal-note">Replace <strong>KEY_HERE</strong> with the user's key. The script is HWID-locked on first execution.</div>
+    <label class="lbl">Loader Code</label>
+    <div class="loader-box" id="ldr-txt"></div>
+    <div class="flex" style="margin-top:12px">
+      <button class="btn btn-p" onclick="copyLdr()">Copy Loader</button>
+      <button class="btn btn-ghost" onclick="closeM()">Close</button>
+    </div>
+  </div>
+
+  <div id="m-addUser" class="modal hidden">
+    <div class="modal-head"><div class="modal-title">Add User</div><button class="mclose" onclick="closeM()">×</button></div>
+    <div class="modal-note">Leave fields blank to generate an unused key. The key will HWID-lock on first execution.</div>
+    <div class="fg"><label class="lbl">Project</label><select class="inp" id="au-p"></select></div>
+    <div class="fg"><label class="lbl">Discord ID <span style="color:var(--txt3)">(optional)</span></label><input class="inp" id="au-d" placeholder="146284978573..."/></div>
+    <div class="fg"><label class="lbl">Note <span style="color:var(--txt3)">(optional)</span></label><input class="inp" id="au-n" placeholder="Customer note..."/></div>
+    <div class="fg"><label class="lbl">Days Until Expiry <span style="color:var(--txt3)">(blank = lifetime)</span></label><input class="inp" id="au-days" type="number" min="1" placeholder="30"/></div>
+    <button class="btn btn-p" style="width:100%;padding:11px" onclick="addUser()">Generate Key</button>
+  </div>
+
+  <div id="m-massGen" class="modal hidden">
+    <div class="modal-head"><div class="modal-title">Mass Generate Keys</div><button class="mclose" onclick="closeM()">×</button></div>
+    <div class="fg"><label class="lbl">Project</label><select class="inp" id="mg-p"></select></div>
+    <div class="fg"><label class="lbl">Amount <span style="color:var(--txt3)">(1–500)</span></label><input class="inp" id="mg-a" type="number" min="1" max="500" value="1"/></div>
+    <div class="fg"><label class="lbl">Days <span style="color:var(--txt3)">(blank = lifetime)</span></label><input class="inp" id="mg-d" type="number" min="1" placeholder="30"/></div>
+    <div class="fg"><label class="lbl">Note <span style="color:var(--txt3)">(optional)</span></label><input class="inp" id="mg-n" placeholder="Batch sale..."/></div>
+    <button class="btn btn-p" style="width:100%;padding:11px" onclick="massGen()">Generate Keys</button>
+    <div id="mg-res" class="hidden" style="margin-top:16px">
+      <div class="sep"></div>
+      <label class="lbl">Generated Keys</label>
+      <textarea class="inp" id="mg-keys" rows="5" readonly style="font-size:11px;font-family:'JetBrains Mono',monospace;margin-top:6px"></textarea>
+      <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="navigator.clipboard.writeText(document.getElementById('mg-keys').value);toast('Copied all keys!')">Copy All</button>
+    </div>
+  </div>
+
+  <div id="m-keyInfo" class="modal hidden">
+    <div class="modal-head"><div class="modal-title">Key Details</div><button class="mclose" onclick="closeM()">×</button></div>
+    <div id="keyInfoBody"></div>
+  </div>
+
+</div>
+
+<div id="toasts"></div>
+
+<script>
+'use strict';
+// Redirect away from / — homepage should show, not dashboard
+if(location.pathname==='/'||location.pathname===''){location.replace('/login');}
+
+let KEY='', ACC=null, PROJS=[], CUP=null, CUU=null, KV=false;
+const BASE=window.location.origin;
+
+// ── API ──────────────────────────────────────────────────────────────────────
+async function api(m,p,b){
+  try{
+    const r=await fetch(BASE+p,{method:m,headers:{"Content-Type":"application/json","Authorization":"Bearer "+KEY},body:b?JSON.stringify(b):undefined});
+    return await r.json();
+  }catch(e){return{error:e.message};}
+}
+
+// ── TOAST ────────────────────────────────────────────────────────────────────
+function toast(msg,type='ok'){
+  const ic={ok:'✓',err:'✕',info:'ℹ'};
+  const t=document.createElement('div');
+  t.className=`toast toast-${type}`;
+  t.innerHTML=`<span style="font-size:15px">${ic[type]||'ℹ'}</span><span>${msg}</span>`;
+  document.getElementById('toasts').appendChild(t);
+  setTimeout(()=>{t.style.opacity='0';t.style.transform='translateX(60px)';t.style.transition='.3s';setTimeout(()=>t.remove(),300);},3500);
+}
+
+// ── ESCAPE ───────────────────────────────────────────────────────────────────
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+// ── LOGIN ────────────────────────────────────────────────────────────────────
+async function doLogin(){
+  const btn=document.getElementById('loginBtn');
+  const err=document.getElementById('loginErr');
+  const k=document.getElementById('apiIn').value.trim();
+  err.style.display='none';
+  if(!k){err.textContent='Please enter your API key.';err.style.display='block';return;}
+  btn.textContent='Signing in…';btn.disabled=true;
+  KEY=k;
+  const d=await api('GET','/v1/account');
+  if(!d.success||!d.account){
+    err.textContent=d.error||'Invalid API key — check your Lunex dashboard.';
+    err.style.display='block';
+    btn.textContent='Sign In →';btn.disabled=false;KEY='';return;
+  }
+  localStorage.setItem('lnx_k',k);
+  document.getElementById('login').classList.add('hidden');
+  boot(d.account);
+}
+document.getElementById('apiIn').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+function logout(){localStorage.removeItem('lnx_k');location.reload();}
+
+// ── BOOT ─────────────────────────────────────────────────────────────────────
+async function boot(acc){
+  if(!acc)return;
+  ACC=acc;
+  const em=acc.email||'—', pl=(acc.plan||'starter').toUpperCase();
+  document.getElementById('sAv').textContent=em[0].toUpperCase();
+  document.getElementById('sEm').textContent=em;
+  document.getElementById('sPl').textContent=pl;
+  document.getElementById('topU').textContent=em;
+  document.getElementById('a-em').textContent=em;
+  document.getElementById('a-pl').innerHTML=`<span class="badge b-b">${acc.plan||'starter'}</span>`;
+  document.getElementById('a-si').textContent=acc.created_at?new Date(acc.created_at).toLocaleDateString():'—';
+  buildChart();
+  await Promise.all([loadStats(),loadProjects()]);
+}
+
+// ── STATS ────────────────────────────────────────────────────────────────────
+async function loadStats(){
+  const d=await api('GET','/v1/stats');
+  if(!d.success)return;
+  const p=d.projects||0,k=d.total_keys||0,e=d.total_executions||0,o=d.obfs_used||0;
+  document.getElementById('s-p').textContent=p;
+  document.getElementById('s-k').textContent=k;
+  document.getElementById('s-e').textContent=e.toLocaleString();
+  document.getElementById('s-o').textContent=o;
+  document.getElementById('a-sp').textContent=p;
+  document.getElementById('a-sk').textContent=k;
+  document.getElementById('a-se').textContent=e.toLocaleString();
+  document.getElementById('a-so').textContent=o;
+  document.getElementById('fp-p').style.width=Math.min(100,(p/50)*100)+'%';
+  document.getElementById('fp-k').style.width=Math.min(100,(k/10000)*100)+'%';
+}
+
+function buildChart(){
+  const bc=document.getElementById('cbars');
+  const xc=document.getElementById('chartX');
+  bc.innerHTML='';xc.innerHTML='';
+  const colors=['var(--acc)','rgba(78,140,255,.6)','rgba(78,140,255,.4)'];
+  const now=new Date();
+  for(let i=13;i>=0;i--){
+    const d=new Date(now);d.setDate(d.getDate()-i);
+    const h=Math.random()*80+5;
+    const b=document.createElement('div');
+    b.className='cb';
+    b.style.height=h+'%';
+    b.style.background=colors[Math.floor(i/5)%3];
+    bc.appendChild(b);
+    const x=document.createElement('div');
+    x.className='chart-x-item';
+    x.textContent=(d.getMonth()+1)+'/'+(d.getDate());
+    xc.appendChild(x);
+  }
+}
+
+// ── PROJECTS ─────────────────────────────────────────────────────────────────
+async function loadProjects(){
+  const d=await api('GET','/v1/projects');
+  if(!d.success)return;
+  PROJS=d.projects||[];
+  renderProjs();renderUtabs();fillSelects();
+}
+
+function fillSelects(){
+  ['au-p','mg-p'].forEach(id=>{
+    const s=document.getElementById(id);
+    if(!s)return;
+    s.innerHTML=PROJS.length?PROJS.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join(''):'<option value="">No projects yet</option>';
+  });
+}
+
+function renderProjs(){
+  const el=document.getElementById('projList');
+  if(!PROJS.length){
+    el.innerHTML=`<div class="card"><div class="empty-state"><div class="empty-state-icon">📁</div>No projects yet. Create one to get started.</div></div>`;
+    return;
+  }
+  el.innerHTML=PROJS.map(p=>`
+    <div class="proj">
+      <div class="proj-head">
+        <div class="proj-status" style="background:${p.active?'var(--grn)':'var(--red)'}"></div>
+        <div class="proj-info">
+          <div class="proj-name">${esc(p.name)}</div>
+          <div class="proj-id">${p.id}</div>
+        </div>
+        <div class="proj-acts">
+          <button class="btn btn-p btn-sm" onclick="showLdr('${p.id}')">⬇ Loader</button>
+          <button class="btn btn-ghost btn-sm" onclick="openUpload('${p.id}')">✏ Script</button>
+          <button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText('${p.id}');toast('ID copied!')">Copy ID</button>
+          <button class="btn btn-r btn-sm" onclick="delProj('${p.id}')">🗑</button>
+        </div>
+      </div>
+      <div class="proj-table-wrap">
+        <table>
+          <thead><tr><th style="width:50px">Active</th><th>Name</th><th>Status</th><th>Version</th><th>Mode</th><th>Last Updated</th></tr></thead>
+          <tbody><tr>
+            <td><div class="tog ${p.active?'on':''}" onclick="togProj('${p.id}')"></div></td>
+            <td><div style="font-weight:600">${esc(p.name)}</div><div class="mono" style="color:var(--txt3)">${p.id.slice(0,20)}…</div></td>
+            <td><span class="badge ${p.active?'b-g':'b-r'}">${p.active?'ACTIVE':'INACTIVE'}</span></td>
+            <td><span class="code">v${p.script_version||'0'}</span></td>
+            <td><span class="badge ${p.ffa?'b-y':'b-b'}">${p.ffa?'FREE FOR ALL':'KEY REQUIRED'}</span></td>
+            <td style="color:var(--txt2);font-size:12px">${p.updated_at?new Date(p.updated_at).toLocaleString():'Never'}</td>
+          </tr></tbody>
+        </table>
+      </div>
+    </div>`).join('');
+}
+
+async function createProj(){
+  const name=document.getElementById('np-n').value.trim();
+  const src=document.getElementById('np-s').value.trim();
+  const ffa=document.getElementById('np-f').value==='true';
+  const errEl=document.getElementById('np-err');
+  errEl.textContent='';
+  if(!name){errEl.textContent='Project name is required.';return;}
+  const d=await api('POST','/v1/projects',{name,ffa});
+  if(!d.success){errEl.textContent=d.error||'Failed to create project.';return;}
+  if(src){
+    const ud=await api('POST',`/v1/projects/${d.project.id}/script`,{source:src});
+    if(!ud.success)toast('Project created but script upload failed: '+ud.error,'err');
+  }
+  toast('Project created!');closeM();
+  await Promise.all([loadProjects(),loadStats()]);
+}
+
+async function delProj(id){
+  if(!confirm('Delete this project and ALL its keys? This cannot be undone.'))return;
+  await api('DELETE',`/v1/projects/${id}`);
+  toast('Project deleted');await Promise.all([loadProjects(),loadStats()]);
+}
+
+async function togProj(id){
+  await api('POST',`/v1/projects/${id}/toggle`);await loadProjects();
+}
+
+function openUpload(id){
+  CUP=id;document.getElementById('us-s').value='';
+  const b=document.getElementById('usBtn');b.textContent='Upload Script';b.disabled=false;
+  openM('uploadScript');
+}
+
+async function uploadScript(){
+  const src=document.getElementById('us-s').value.trim();
+  const btn=document.getElementById('usBtn');
+  if(!src){toast('Paste your script source first.','err');return;}
+  btn.textContent='Uploading…';btn.disabled=true;
+  const d=await api('POST',`/v1/projects/${CUP}/script`,{source:src});
+  btn.textContent='Upload Script';btn.disabled=false;
+  if(!d.success){toast(d.error||'Upload failed','err');return;}
+  toast(`Script updated! v${d.version}`);closeM();await loadProjects();
+}
+
+function showLdr(id){
+  const loader=`script_key="KEY_HERE"\nloadstring(game:HttpGet("${BASE}/v1/auth?key="..script_key.."&hwid="..game:GetService("RbxAnalyticsService"):GetClientId()))()`;
+  document.getElementById('ldr-txt').textContent=loader;
+  openM('loader');
+}
+function copyLdr(){navigator.clipboard.writeText(document.getElementById('ldr-txt').textContent).then(()=>toast('Loader copied!'));}
+
+// ── USERS ────────────────────────────────────────────────────────────────────
+function renderUtabs(){
+  const el=document.getElementById('utabs');
+  if(!PROJS.length){el.innerHTML=`<span style="color:var(--txt3);font-size:13px">No projects yet. Create one first.</span>`;return;}
+  el.innerHTML=PROJS.map((p,i)=>`<button class="btn ${i===0?'btn-p':'btn-ghost'} btn-sm" onclick="selUP('${p.id}',this)">${esc(p.name)}</button>`).join('');
+  selUP(PROJS[0].id,el.firstChild);
+}
+
+async function selUP(id,btn){
+  CUU=id;
+  document.querySelectorAll('#utabs .btn').forEach(b=>b.className='btn btn-ghost btn-sm');
+  if(btn)btn.className='btn btn-p btn-sm';
+  await loadUsers(id);
+}
+
+async function loadUsers(pid,search=''){
+  const panel=document.getElementById('upanel');
+  panel.innerHTML=`<div class="card"><div class="empty-state">Loading…</div></div>`;
+  const d=await api('GET',`/v1/projects/${pid}/keys?limit=100&search=${encodeURIComponent(search)}`);
+  if(!d.success){panel.innerHTML=`<div class="card"><div class="empty-state" style="color:var(--red)">Error: ${esc(d.error||'Unknown')}</div></div>`;return;}
+  const keys=d.keys||[];
+  panel.innerHTML=`<div class="card">
+    <div class="search-bar">
+      <input class="inp grow" placeholder="Search keys, Discord ID, note…" oninput="loadUsers('${pid}',this.value)" value="${esc(search)}"/>
+      <span style="font-size:12px;color:var(--txt3);white-space:nowrap">${keys.length} result${keys.length!==1?'s':''}</span>
+    </div>
+    <div class="users-table-wrap">
+    <table>
+      <thead><tr><th>User Key</th><th>Discord</th><th>Status</th><th>Note</th><th>Runs</th><th>HWID</th><th>Days</th><th>Actions</th></tr></thead>
+      <tbody>${keys.length?keys.map(k=>{
+        const now=Math.floor(Date.now()/1000);
+        const act=k.active&&(!k.expires_at||k.expires_at>now);
+        const dl=k.expires_at?Math.max(0,Math.ceil((k.expires_at-now)/86400)):null;
+        const dc=dl===null?'':dl>14?'color:var(--grn)':dl>3?'color:var(--yel)':'color:var(--red)';
+        const sk=k.key_string.length>22?k.key_string.slice(0,22)+'…':k.key_string;
+        return `<tr>
+          <td><div class="mono" style="font-weight:600">${sk}</div><div class="mono" style="color:var(--txt3);font-size:10px">${k.id.slice(0,14)}</div></td>
+          <td style="color:var(--txt2)">${k.discord_id||'—'}</td>
+          <td><span class="badge ${act?'b-g':'b-r'}">${act?'ACTIVE':'REVOKED'}</span></td>
+          <td style="color:var(--txt2);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(k.note||'—')}</td>
+          <td style="font-weight:700">${k.total_executions||0}</td>
+          <td>${k.hwid?'<span class="badge b-r">LOCKED</span>':'<span class="badge b-y">OPEN</span>'}</td>
+          <td style="${dc};font-weight:600">${dl===null?'∞':dl+'d'}</td>
+          <td><div class="flex" style="gap:4px">
+            <button class="btn btn-ghost btn-xs" onclick="openKI('${k.key_string}','${pid}')">⚙</button>
+            <button class="btn btn-ghost btn-xs" onclick="rstH('${k.key_string}','${pid}')" title="Reset HWID">🔓</button>
+            <button class="btn btn-r btn-xs" onclick="rvk('${k.key_string}','${pid}')">✕</button>
+          </div></td>
+        </tr>`}).join(''):`<tr><td colspan="8" class="empty-state">No users yet.</td></tr>`}
+      </tbody>
+    </table></div></div>`;
+}
+
+function openAddUser(){fillSelects();['au-d','au-n','au-days'].forEach(id=>document.getElementById(id).value='');openM('addUser');}
+function openMassGen(){fillSelects();document.getElementById('mg-res').classList.add('hidden');openM('massGen');}
+
+async function addUser(){
+  const pid=document.getElementById('au-p').value;
+  const disc=document.getElementById('au-d').value||null;
+  const note=document.getElementById('au-n').value||null;
+  const days=parseInt(document.getElementById('au-days').value)||null;
+  if(!pid){toast('Select a project','err');return;}
+  const d=await api('POST',`/v1/projects/${pid}/keys`,{amount:1,discord_id:disc,note,key_days:days});
+  if(!d.success){toast(d.error||'Failed','err');return;}
+  toast(`Key generated: ${d.keys[0]}`,'info');
+  navigator.clipboard.writeText(d.keys[0]).catch(()=>{});
+  closeM();if(CUU===pid)await loadUsers(pid);await loadStats();
+}
+
+async function massGen(){
+  const pid=document.getElementById('mg-p').value;
+  const amt=parseInt(document.getElementById('mg-a').value)||1;
+  const days=parseInt(document.getElementById('mg-d').value)||null;
+  const note=document.getElementById('mg-n').value||null;
+  if(!pid){toast('Select a project','err');return;}
+  const d=await api('POST',`/v1/projects/${pid}/keys`,{amount:amt,key_days:days,note});
+  if(!d.success){toast(d.error||'Failed','err');return;}
+  toast(`Generated ${d.count} key${d.count!==1?'s':''}!`);
+  document.getElementById('mg-keys').value=d.keys.join('\n');
+  document.getElementById('mg-res').classList.remove('hidden');
+  if(CUU===pid)await loadUsers(pid);await loadStats();
+}
+
+async function rstH(key,pid){
+  const d=await api('POST',`/v1/keys/${key}/resethwid`);
+  toast(d.success?'HWID reset!':d.error||'Failed',d.success?'ok':'err');
+  if(pid)await loadUsers(pid);
+}
+
+async function rvk(key,pid){
+  if(!confirm('Revoke this key?'))return;
+  await api('POST',`/v1/keys/${key}/revoke`);
+  toast('Key revoked');if(pid)await loadUsers(pid);await loadStats();
+}
+
+async function openKI(key,pid){
+  const d=await api('GET',`/v1/keys/${key}`);
+  if(!d.success){toast(d.error||'Key not found','err');return;}
+  const k=d.key;
+  const now=Math.floor(Date.now()/1000);
+  const act=k.active&&(!k.expires_at||k.expires_at>now);
+  const dl=k.expires_at?Math.max(0,Math.ceil((k.expires_at-now)/86400)):null;
+  document.getElementById('keyInfoBody').innerHTML=`
+    <div class="dr"><div class="dr-l">Key</div><div class="mono" style="word-break:break-all">${k.key_string}</div></div>
+    <div class="dr"><div class="dr-l">Status</div><span class="badge ${act?'b-g':'b-r'}">${act?'ACTIVE':'REVOKED'}</span></div>
+    <div class="dr"><div class="dr-l">HWID</div><div class="dr-v mono">${k.hwid||'Not locked'}</div></div>
+    <div class="dr"><div class="dr-l">Discord ID</div><div class="dr-v">${k.discord_id||'—'}</div></div>
+    <div class="dr"><div class="dr-l">Note</div><div class="dr-v">${esc(k.note||'—')}</div></div>
+    <div class="dr"><div class="dr-l">Executions</div><div class="dr-v">${k.total_executions||0}</div></div>
+    <div class="dr"><div class="dr-l">Last Run</div><div class="dr-v">${k.last_exec?new Date(k.last_exec).toLocaleString():'Never'}</div></div>
+    <div class="dr"><div class="dr-l">Days Left</div><div class="dr-v">${dl===null?'Lifetime':dl+'d'}</div></div>
+    <div class="sep"></div>
+    <div class="flex" style="flex-wrap:wrap;gap:8px">
+      <button class="btn btn-ghost" onclick="rstH('${k.key_string}','${pid}');closeM()">🔓 Reset HWID</button>
+      ${act
+        ?`<button class="btn btn-r" onclick="rvk('${k.key_string}','${pid}');closeM()">✕ Revoke</button>`
+        :`<button class="btn btn-g" onclick="unrvk('${k.key_string}','${pid}');closeM()">✓ Unrevoke</button>`
+      }
+    </div>`;
+  openM('keyInfo');
+}
+
+async function unrvk(key,pid){
+  await api('POST',`/v1/keys/${key}/unrevoke`);
+  toast('Key unrevoked');if(pid)await loadUsers(pid);
+}
+
+// ── ACCOUNT ──────────────────────────────────────────────────────────────────
+function toggleKey(){KV=!KV;document.getElementById('a-key').textContent=KV?KEY:'••••••••••••••••••••••••';}
+function copyKey(){navigator.clipboard.writeText(KEY).then(()=>toast('API key copied!'));}
+
+// ── NAV ───────────────────────────────────────────────────────────────────────
+function goPage(name,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
+  document.getElementById('page-'+name).classList.add('on');
+  if(el)el.classList.add('on');
+  document.getElementById('topT').textContent=name.charAt(0).toUpperCase()+name.slice(1);
+  if(name==='users')renderUtabs();
+  if(name==='account')loadStats();
+  if(name==='obf')fillObfProjects();
+}
+
+// ── MODALS ────────────────────────────────────────────────────────────────────
+function openM(name){
+  document.querySelectorAll('.modal').forEach(m=>m.classList.add('hidden'));
+  document.getElementById('m-'+name).classList.remove('hidden');
+  document.getElementById('ov').classList.add('open');
+}
+function closeM(){document.getElementById('ov').classList.remove('open');}
+
+// ── OBFUSCATOR ───────────────────────────────────────────────────────────────
+function fillObfProjects() {
+  const sel = document.getElementById('obf-proj');
+  if (!sel) return;
+  if (!PROJS.length) { sel.innerHTML='<option value="">No projects yet</option>'; return; }
+  sel.innerHTML = PROJS.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
+}
+
+// Live char/line counter
+document.addEventListener('DOMContentLoaded', () => {
+  const inp = document.getElementById('obf-in');
+  if (!inp) return;
+  inp.addEventListener('input', () => {
+    const v = inp.value;
+    const lines = v ? v.split('\n').length : 0;
+    const chars = v.length;
+    document.getElementById('obf-in-stat').textContent = `${lines} line${lines!==1?'s':''} · ${chars.toLocaleString()} chars`;
+  });
+});
+
+async function pasteClip() {
+  try {
+    const t = await navigator.clipboard.readText();
+    document.getElementById('obf-in').value = t;
+    document.getElementById('obf-in').dispatchEvent(new Event('input'));
+  } catch { toast('Clipboard access denied — paste manually','err'); }
+}
+
+async function runObf() {
+  const source = document.getElementById('obf-in').value.trim();
+  const projId = document.getElementById('obf-proj').value;
+  const btn    = document.getElementById('obfBtn');
+  const statEl = document.getElementById('obf-out-stat');
+  const outEl  = document.getElementById('obf-out');
+
+  if (!source) { toast('Paste your source code first','err'); return; }
+  if (!projId) { toast('Select a project first','err'); return; }
+
+  btn.disabled = true; btn.textContent = '⏳ Encrypting…';
+  statEl.textContent = 'Encrypting…'; statEl.className = 'obf-stat';
+  outEl.value = '';
+  document.getElementById('copyObfBtn').style.display = 'none';
+  document.getElementById('obf-loader-wrap').style.display = 'none';
+
+  const d = await api('POST', `/v1/projects/${projId}/script`, { source });
+  btn.disabled = false; btn.textContent = '🔐 Obfuscate & Upload';
+
+  if (!d.success) {
+    statEl.textContent = d.error || 'Failed'; statEl.className = 'obf-stat err';
+    toast(d.error || 'Obfuscation failed', 'err'); return;
+  }
+
+  // Fetch and show the full encrypted source
+  const raw = await fetch(BASE+`/v1/projects/${projId}/script-raw`,{
+    headers:{'Authorization':'Bearer '+KEY}
+  }).then(r=>r.text()).catch(()=>'-- fetch error');
+  outEl.value = raw;
+  statEl.textContent = `v${d.version} · ${raw.length.toLocaleString()} chars`; statEl.className = 'obf-stat ok';
+  document.getElementById('copyObfBtn').style.display = 'block';
+
+  if (d.loader) {
+    document.getElementById('obf-loader').textContent = d.loader.slice(0,60)+'…';
+    document.getElementById('obf-loader-wrap').style.display = 'flex';
+    document.getElementById('obf-loader-wrap').style.alignItems = 'center';
+    document.getElementById('obf-loader-wrap').dataset.full = d.loader;
+  }
+
+  toast(`Script encrypted & uploaded! v${d.version}`);
+  await loadProjects();
+}
+
+function copyObf() {
+  const v = document.getElementById('obf-out').value;
+  navigator.clipboard.writeText(v).then(() => toast('Copied!'));
+}
+function copyLoader() {
+  const full = document.getElementById('obf-loader-wrap').dataset.full;
+  if (full) navigator.clipboard.writeText(full).then(() => toast('Loader copied!'));
+}
+
+// ── AUTO LOGIN ────────────────────────────────────────────────────────────────
+(async()=>{
+  const k=localStorage.getItem('lnx_k');
+  if(!k)return;
+  KEY=k;
+  const d=await api('GET','/v1/account');
+  if(d.success&&d.account){
+    document.getElementById('login').classList.add('hidden');
+    boot(d.account);
+  }else{
+    localStorage.removeItem('lnx_k');KEY='';
+  }
+})();
+</script>
+</body>
+</html>
