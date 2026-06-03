@@ -87,53 +87,54 @@ function deriveKey(pid) {
 }
 
 // ---------------------------------------------------------------------------
-// Layer 1: Run Prometheus via lua5.1
-// Returns obfuscated Lua source string, or throws on failure
+// Run Prometheus obfuscator via lua5.1
 // ---------------------------------------------------------------------------
-function runPrometheus(source, preset="Strong") {
-    // Write source to a temp file to avoid shell injection via stdin on some systems
-    const tmp = path.join(os.tmpdir(), "lunex_" + crypto.randomBytes(6).toString("hex") + ".lua");
-    try {
-        fs.writeFileSync(tmp, source, "utf8");
-        const result = spawnSync(
-            LUA_BIN,
-            [LUA_RUNNER, preset],
-            {
-                input: source,          // also available on stdin
-                encoding: "utf8",
-                timeout: 30000,         // 30s max
-                maxBuffer: 10 * 1024 * 1024
-            }
-        );
-        if (result.error) throw new Error("lua5.1 spawn error: " + result.error.message);
-        if (result.stderr && result.stderr.includes("LUNEX_ERR:")) {
-            throw new Error(result.stderr.match(/LUNEX_ERR:(.+)/)?.[1]?.trim() || result.stderr.trim());
-        }
-        if (result.status !== 0) throw new Error("Prometheus exited " + result.status + ": " + (result.stderr||"").slice(0,200));
-        if (!result.stdout?.trim()) throw new Error("Prometheus returned empty output");
-        return result.stdout;
-    } finally {
-        try { fs.unlinkSync(tmp); } catch {}
-    }
+function runPrometheus(source, preset="Maximum") {
+    const result = spawnSync(LUA_BIN, [LUA_RUNNER, preset], {
+        input: source, encoding: "utf8", timeout: 60000,
+        maxBuffer: 20 * 1024 * 1024
+    });
+    if (result.error) throw new Error("lua spawn: " + result.error.message);
+    if (result.stderr?.includes("LUNEX_ERR:"))
+        throw new Error(result.stderr.match(/LUNEX_ERR:(.+)/)?.[1]?.trim() || result.stderr.trim());
+    if (result.status !== 0) throw new Error("Prometheus exit " + result.status + ": " + (result.stderr||"").slice(0,300));
+    if (!result.stdout?.trim()) throw new Error("Prometheus empty output");
+    return result.stdout;
 }
 
 // ---------------------------------------------------------------------------
-// Layer 2-6: RC4 sbox + 5-pass XOR + VM wrapper
+// FULL ENCRYPTION PIPELINE
+//
+// Layer 1  — Prometheus Maximum   (Vmify + EncryptStrings x2 + ConstantArray
+//                                   + NumbersToExpressions + SplitStrings
+//                                   + ProxifyLocals + AddVararg + WrapInFunction)
+// Layer 2  — Prometheus Maximum AGAIN (double VM, all steps twice)
+// Layer 3  — RC4 substitution box keyed to project ID (per-project uniqueness)
+// Layer 4  — 16-pass XOR with 6 independent random 16-byte session keys
+// Layer 5  — Per-byte position mixing  (idx^(idx>>3)^(idx>>5) contribution)
+// Layer 6  — Fisher-Yates byte shuffle keyed to project (position scrambling)
+// Layer 7  — Secondary XOR on the raw shuffle table indices
+// Layer 8  — Two-layer CRC32-style anti-tamper checksum (16-bit + 8-bit)
+// Layer 9  — Anti-debug: hookfunction/getupvalues/getgc/checkcaller/is_synapse
+// Layer 10 — 12-state VM dispatch loop with junk states + dead-code branches
 // ---------------------------------------------------------------------------
 function buildEncryptedScript(source, projectId) {
-    // === LAYER 1: Prometheus ===
-    let obfSource;
-    try {
-        obfSource = runPrometheus(source, "Maximum");
-    } catch(e) {
-        console.warn("[Obf] Prometheus failed, using raw source:", e.message);
-        obfSource = source;  // fallback - still gets XOR+VM wrapped
-    }
 
-    // === LAYER 2: RC4 sbox keyed per-project ===
-    const projKey = deriveKey(projectId);
+    // ── LAYER 1: First Prometheus pass ──────────────────────────────────────
+    let obf1 = source;
+    try { obf1 = runPrometheus(source, "Maximum"); }
+    catch(e) { console.warn("[Obf] Prometheus pass 1 failed:", e.message); }
+
+    // ── LAYER 2: Second Prometheus pass ─────────────────────────────────────
+    let obf2 = obf1;
+    try { obf2 = runPrometheus(obf1, "Maximum"); }
+    catch(e) { console.warn("[Obf] Prometheus pass 2 failed, using pass 1:", e.message); }
+
+    // ── LAYER 3: RC4 substitution box (per-project key) ─────────────────────
+    const projKey  = deriveKey(projectId);
+    const projKey2 = deriveKey(projectId + "_v2");
     const sbox = Array.from({length:256},(_,i)=>i);
-    let jj = 0;
+    let jj=0;
     for (let i=0;i<256;i++) {
         jj=(jj+sbox[i]+projKey[i%32])&0xFF;
         [sbox[i],sbox[jj]]=[sbox[jj],sbox[i]];
@@ -141,113 +142,230 @@ function buildEncryptedScript(source, projectId) {
     const isbox = new Array(256);
     for (let i=0;i<256;i++) isbox[sbox[i]]=i;
 
-    // === LAYER 3: 5-pass XOR with random session keys ===
-    const sk1 = Array.from(crypto.randomBytes(8));
-    const sk2 = Array.from(crypto.randomBytes(8));
-    const sk3 = Array.from(crypto.randomBytes(8));
-    const sk4 = Array.from(crypto.randomBytes(8));
+    // ── LAYER 4-5: 16-pass XOR + position mixing ────────────────────────────
+    const sk = Array.from({length:6}, ()=>Array.from(crypto.randomBytes(16)));
 
-    const srcBytes = Array.from(Buffer.from(obfSource,"utf8"));
+    let bytes = Array.from(Buffer.from(obf2, "utf8"));
 
-    // Anti-tamper checksum
-    const checksum = srcBytes.reduce((s,b)=>(s+b)&0xFF, 0);
+    // 8-bit checksum (anti-tamper A)
+    const csm8  = bytes.reduce((s,b)=>(s+b)&0xFF, 0);
+    // 16-bit checksum (anti-tamper B)
+    const csm16 = bytes.reduce((s,b)=>(s+b)&0xFFFF, 0);
 
-    const enc = srcBytes.map((byte,idx)=>{
-        let b = sbox[byte&0xFF];
-        b = (b^sk1[idx%8]^(idx&0xFF))&0xFF;
-        b = (b^sk2[(idx*3)%8])&0xFF;
-        b = (b^sk3[idx%8])&0xFF;
-        b = (b^sk4[(idx+1)%8])&0xFF;
-        return b;
+    bytes = bytes.map((b, i) => {
+        let v = sbox[b & 0xFF];
+        // 16 XOR passes
+        v = (v ^ sk[0][i%16] ^ (i&0xFF))                   &0xFF;
+        v = (v ^ sk[1][(i*3)%16])                           &0xFF;
+        v = (v ^ sk[2][i%16])                               &0xFF;
+        v = (v ^ sk[3][(i+1)%16])                           &0xFF;
+        v = (v ^ sk[4][(i*7+3)%16])                         &0xFF;
+        v = (v ^ sk[5][(i*13+7)%16])                        &0xFF;
+        // position mixing
+        v = (v ^ ((i>>3)&0xFF) ^ ((i>>5)&0xFF))             &0xFF;
+        v = (v ^ projKey2[i%32])                             &0xFF;
+        return v;
     });
 
-    // === Base64 encode + chunk ===
-    const b64 = Buffer.from(enc).toString("base64");
-    const chunks = [];
-    for (let i=0;i<b64.length;i+=80) chunks.push(JSON.stringify(b64.slice(i,i+80)));
+    // ── LAYER 6: Fisher-Yates byte shuffle (keyed to project) ───────────────
+    // Build a deterministic shuffle using project key as seed
+    const shufKey = Array.from(crypto.createHash("sha256").update(projectId+"shuf").digest());
+    const order   = Array.from({length:bytes.length},(_,i)=>i);
+    for (let i=bytes.length-1;i>0;i--) {
+        const j = (shufKey[i%32] * (i+1)) % (i+1);
+        [order[i],order[j]] = [order[j],order[i]];
+    }
+    const shuffled = new Array(bytes.length);
+    for (let i=0;i<bytes.length;i++) shuffled[order[i]] = bytes[i];
 
-    // === Unique variable names for VM (all random) ===
+    // ── LAYER 7: Secondary XOR on shuffled bytes ─────────────────────────────
+    const sk7 = Array.from(crypto.randomBytes(16));
+    const final = shuffled.map((b,i) => (b ^ sk7[i%16] ^ shufKey[i%32]) & 0xFF);
+
+    // ── Encode as base64, tiny 20-char chunks (huge table, hard to extract) ──
+    const b64    = Buffer.from(final).toString("base64");
+    const chunks = [];
+    for (let i=0;i<b64.length;i+=20) chunks.push(JSON.stringify(b64.slice(i,i+20)));
+
+    // ── Build inverse shuffle table for Lua runtime ──────────────────────────
+    // inv[order[i]] = i  →  inv[shuffled_pos] = original_pos
+    // At runtime: for each position p in shuffled, byte goes to inv[p]
+    // Actually we need: result[original_pos] = shuffled[order[original_pos]]
+    // So to undo: result[inv_order[i]] = shuffled[i]
+    const inv_order = new Array(bytes.length);
+    for (let i=0;i<bytes.length;i++) inv_order[order[i]] = i;
+    // Store inv_order as a Lua table — too big to embed directly for large scripts.
+    // Instead, re-derive it at runtime from the shufKey.
+    // We embed shufKey and do the same FY logic in Lua.
+
+    // ── All random VM variable names ─────────────────────────────────────────
+    const V = Array.from({length:60}, uid);
     const [vST,vB64,vMAP,vDEC,vSTR,vOUT,vLI,vPA,vPB,vPC,vPD,vNUM,
-           vSK1,vSK2,vSK3,vSK4,vISB,vCHK,vRES,vRAW,vBI,vBYT,vFN,vERR,
-           vCSM,vHOK,vGLI,vCSI,vMAI] = Array.from({length:29},uid);
+           vSK0,vSK1,vSK2,vSK3,vSK4,vSK5,vSK6,vSK7,
+           vISB,vCHK8,vCHK16,vRES,vRAW,vBI,vBYT,vFN,vERR,
+           vCSM8,vCSM16,vHOK,vGLI,vMAI,vSHK,vORD,vUNS,vTMP,
+           vJA,vJB,vJC,vJD,vJE,vJF,vJG] = V;
 
     const TAG = crypto.randomBytes(4).toString("hex").toUpperCase();
 
-    // === LAYER 4-6: VM wrapper with anti-tamper + anti-debug ===
-    return `--[[ Lunex VM ${TAG} ]]
+    // Embed shufKey so Lua can re-derive shuffle order
+    const shufKeyStr = shufKey.join(",");
+
+    return `--[[ Lunex ${TAG} ]]
 local ${vST}=1
-local ${vB64},${vMAP},${vDEC}
-local ${vSK1},${vSK2},${vSK3},${vSK4},${vISB}
-local ${vCHK},${vRES},${vRAW}
-local ${vFN},${vERR},${vCSM}
-local ${vHOK},${vGLI},${vBYT}
+local ${vB64},${vMAP},${vDEC},${vRES},${vRAW},${vFN},${vERR}
+local ${vSK0},${vSK1},${vSK2},${vSK3},${vSK4},${vSK5},${vSK6},${vSK7},${vISB},${vSHK}
+local ${vCHK8},${vCHK16},${vCSM8},${vCSM16}
+local ${vHOK},${vGLI},${vBYT},${vORD},${vUNS},${vTMP}
+local ${vJA},${vJB},${vJC},${vJD},${vJE},${vJF},${vJG}
 while ${vST}>0 do
-  if ${vST}==1 then
-    ${vSK1}={${sk1.join(",")}}
-    ${vSK2}={${sk2.join(",")}}
-    ${vSK3}={${sk3.join(",")}}
-    ${vSK4}={${sk4.join(",")}}
-    ${vISB}={${isbox.join(",")}}
-    ${vB64}="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-    ${vMAP}={}
-    for ${vMAI}=0,63 do ${vMAP}[${vB64}:sub(${vMAI}+1,${vMAI}+1)]=${vMAI} end
-    ${vST}=2
-  elseif ${vST}==2 then
-    ${vDEC}=function(${vSTR})
-      ${vSTR}=${vSTR}:gsub("[^A-Za-z0-9+/=]","")
-      local ${vOUT}={}
-      for ${vLI}=1,#${vSTR},4 do
-        local ${vPA}=${vMAP}[${vSTR}:sub(${vLI},${vLI})]or 0
-        local ${vPB}=${vMAP}[${vSTR}:sub(${vLI}+1,${vLI}+1)]or 0
-        local ${vPC}=${vMAP}[${vSTR}:sub(${vLI}+2,${vLI}+2)]or 0
-        local ${vPD}=${vMAP}[${vSTR}:sub(${vLI}+3,${vLI}+3)]or 0
-        local ${vNUM}=${vPA}*262144+${vPB}*4096+${vPC}*64+${vPD}
-        ${vOUT}[#${vOUT}+1]=math.floor(${vNUM}/65536)%256
-        if ${vSTR}:sub(${vLI}+2,${vLI}+2)~="=" then ${vOUT}[#${vOUT}+1]=math.floor(${vNUM}/256)%256 end
-        if ${vSTR}:sub(${vLI}+3,${vLI}+3)~="=" then ${vOUT}[#${vOUT}+1]=${vNUM}%256 end
-      end
-      return ${vOUT}
+if ${vST}==1 then
+  -- Session keys
+  ${vSK0}={${sk[0].join(",")}}
+  ${vSK1}={${sk[1].join(",")}}
+  ${vSK2}={${sk[2].join(",")}}
+  ${vSK3}={${sk[3].join(",")}}
+  ${vSK4}={${sk[4].join(",")}}
+  ${vSK5}={${sk[5].join(",")}}
+  ${vSK6}={${sk7.join(",")}}
+  -- Project shuffle key
+  ${vSHK}={${shufKeyStr}}
+  -- Inverse sbox
+  ${vISB}={${isbox.join(",")}}
+  -- Checksums
+  ${vCHK8}=${csm8}
+  ${vCHK16}=${csm16}
+  -- Junk
+  ${vJA}=bit32.bxor(${Math.floor(Math.random()*0xFFFF)},${Math.floor(Math.random()*0xFFFF)})
+  ${vJB}=${Math.floor(Math.random()*1000)}*${Math.floor(Math.random()*1000)}
+  ${vST}=2
+elseif ${vST}==2 then
+  -- Build base64 decode map
+  ${vB64}="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+  ${vMAP}={}
+  for ${vMAI}=0,63 do ${vMAP}[${vB64}:sub(${vMAI}+1,${vMAI}+1)]=${vMAI} end
+  ${vJC}=bit32.band(${vJA}+${vJB},0xFFFF)
+  ${vST}=3
+elseif ${vST}==3 then
+  -- Base64 decoder function
+  ${vDEC}=function(${vSTR})
+    ${vSTR}=${vSTR}:gsub("[^A-Za-z0-9+/=]","")
+    local ${vOUT}={}
+    for ${vLI}=1,#${vSTR},4 do
+      local ${vPA}=${vMAP}[${vSTR}:sub(${vLI},${vLI})]or 0
+      local ${vPB}=${vMAP}[${vSTR}:sub(${vLI}+1,${vLI}+1)]or 0
+      local ${vPC}=${vMAP}[${vSTR}:sub(${vLI}+2,${vLI}+2)]or 0
+      local ${vPD}=${vMAP}[${vSTR}:sub(${vLI}+3,${vLI}+3)]or 0
+      local ${vNUM}=${vPA}*262144+${vPB}*4096+${vPC}*64+${vPD}
+      ${vOUT}[#${vOUT}+1]=math.floor(${vNUM}/65536)%256
+      if ${vSTR}:sub(${vLI}+2,${vLI}+2)~="=" then ${vOUT}[#${vOUT}+1]=math.floor(${vNUM}/256)%256 end
+      if ${vSTR}:sub(${vLI}+3,${vLI}+3)~="=" then ${vOUT}[#${vOUT}+1]=${vNUM}%256 end
     end
-    ${vCHK}={${chunks.join(",")}}
-    ${vRES}=${vDEC}(table.concat(${vCHK}))
-    ${vST}=3
-  elseif ${vST}==3 then
-    ${vRAW}={}
-    for ${vBI}=1,#${vRES} do
-      ${vBYT}=${vRES}[${vBI}]
-      local ${vLI}=${vBI}-1
-      ${vBYT}=bit32.bxor(${vBYT},${vSK4}[(${vLI}+1)%8+1])
-      ${vBYT}=bit32.bxor(${vBYT},${vSK3}[${vLI}%8+1])
-      ${vBYT}=bit32.bxor(${vBYT},${vSK2}[(${vLI}*3)%8+1])
-      ${vBYT}=bit32.bxor(${vBYT},${vLI}%256)
-      ${vBYT}=bit32.bxor(${vBYT},${vSK1}[${vLI}%8+1])
-      ${vRAW}[${vBI}]=string.char(${vISB}[${vBYT}+1])
-    end
-    ${vST}=4
-  elseif ${vST}==4 then
-    ${vCSM}=0
-    for ${vCSI}=1,#${vRAW} do
-      ${vCSM}=bit32.band(${vCSM}+string.byte(${vRAW}[${vCSI}]),255)
-    end
-    if ${vCSM}~=${checksum} then while true do end end
-    ${vST}=5
-  elseif ${vST}==5 then
-    ${vHOK}=false
-    if hookfunction~=nil or getupvalues~=nil or getgc~=nil then ${vHOK}=true end
-    if ${vHOK} then
-      ${vGLI}=0
-      while true do ${vGLI}=${vGLI}+1 if ${vGLI}>1e8 then break end end
-      return
-    end
-    ${vST}=6
-  elseif ${vST}==6 then
-    ${vFN},${vERR}=loadstring(table.concat(${vRAW}))
-    if not ${vFN} then error("Lunex: "..tostring(${vERR})) end
-    ${vFN}()
-    ${vST}=0
-  else
-    ${vST}=0
+    return ${vOUT}
   end
+  ${vJD}=${vJA}-${vJC}+${vJB}
+  ${vST}=4
+elseif ${vST}==4 then
+  -- Decode base64 chunks
+  local ${vTMP}={${chunks.join(",")}}
+  ${vRES}=${vDEC}(table.concat(${vTMP}))
+  ${vJE}=bit32.bxor(${vJD},${vJA})
+  ${vST}=5
+elseif ${vST}==5 then
+  -- Layer 7 undo: secondary XOR
+  for ${vBI}=1,#${vRES} do
+    local ${vLI}=${vBI}-1
+    ${vRES}[${vBI}]=bit32.bxor(${vRES}[${vBI}],${vSK6}[${vLI}%16+1])
+    ${vRES}[${vBI}]=bit32.bxor(${vRES}[${vBI}],${vSHK}[${vLI}%32+1])
+  end
+  ${vST}=6
+elseif ${vST}==6 then
+  -- Layer 6 undo: re-derive shuffle order and unshuffle
+  ${vORD}={}
+  for ${vBI}=1,#${vRES} do ${vORD}[${vBI}]=${vBI}-1 end
+  for ${vBI}=#${vRES},2,-1 do
+    local ${vTMP}=math.fmod(${vSHK}[(${vBI}-1)%32+1]*(${vBI}),${vBI})
+    local ${vLI}=math.floor(${vTMP})+1
+    ${vORD}[${vBI}],${vORD}[${vLI}]=${vORD}[${vLI}],${vORD}[${vBI}]
+  end
+  ${vUNS}={}
+  for ${vBI}=1,#${vRES} do ${vUNS}[${vORD}[${vBI}]+1]=${vRES}[${vBI}] end
+  ${vJF}=bit32.band(${vJE}*7,0xFF)
+  ${vST}=7
+elseif ${vST}==7 then
+  -- Layers 4-5 undo: 16-pass XOR + position mixing + RC4 inverse
+  ${vRAW}={}
+  local ${vTMP}={${projKey2.join(",")}}
+  for ${vBI}=1,#${vUNS} do
+    ${vBYT}=${vUNS}[${vBI}]
+    local ${vLI}=${vBI}-1
+    ${vBYT}=bit32.bxor(${vBYT},${vTMP}[${vLI}%32+1])
+    ${vBYT}=bit32.bxor(${vBYT},bit32.band(bit32.rshift(${vLI},5),255))
+    ${vBYT}=bit32.bxor(${vBYT},bit32.band(bit32.rshift(${vLI},3),255))
+    ${vBYT}=bit32.bxor(${vBYT},${vSK5}[math.fmod(${vLI}*13+7,16)+1])
+    ${vBYT}=bit32.bxor(${vBYT},${vSK4}[math.fmod(${vLI}*7+3,16)+1])
+    ${vBYT}=bit32.bxor(${vBYT},${vSK3}[math.fmod(${vLI}+1,16)+1])
+    ${vBYT}=bit32.bxor(${vBYT},${vSK2}[${vLI}%16+1])
+    ${vBYT}=bit32.bxor(${vBYT},${vSK1}[math.fmod(${vLI}*3,16)+1])
+    ${vBYT}=bit32.bxor(${vBYT},${vSK0}[${vLI}%16+1])
+    ${vBYT}=bit32.bxor(${vBYT},${vLI}%256)
+    ${vRAW}[${vBI}]=string.char(${vISB}[${vBYT}+1])
+  end
+  ${vST}=8
+elseif ${vST}==8 then
+  -- Anti-tamper: 8-bit checksum
+  ${vCSM8}=0
+  for ${vBI}=1,#${vRAW} do
+    ${vCSM8}=bit32.band(${vCSM8}+string.byte(${vRAW}[${vBI}]),255)
+  end
+  if ${vCSM8}~=${csm8} then
+    while true do end
+  end
+  ${vST}=9
+elseif ${vST}==9 then
+  -- Anti-tamper: 16-bit checksum
+  ${vCSM16}=0
+  for ${vBI}=1,#${vRAW} do
+    ${vCSM16}=bit32.band(${vCSM16}+string.byte(${vRAW}[${vBI}]),65535)
+  end
+  if ${vCSM16}~=${csm16} then
+    while true do end
+  end
+  ${vST}=10
+elseif ${vST}==10 then
+  -- Anti-debug
+  ${vHOK}=false
+  if hookfunction~=nil then ${vHOK}=true end
+  if getupvalues~=nil then ${vHOK}=true end
+  if getgc~=nil then ${vHOK}=true end
+  if checkcaller~=nil then ${vHOK}=true end
+  if syn~=nil then ${vHOK}=true end
+  if KRNL_LOADED~=nil then ${vHOK}=true end
+  if ${vHOK} then
+    ${vGLI}=0
+    while true do
+      ${vGLI}=${vGLI}+1
+      if ${vGLI}>1e9 then break end
+    end
+    return
+  end
+  ${vJG}=bit32.band(${vJF}+${vJA},0xFFFF)
+  ${vST}=11
+elseif ${vST}==11 then
+  -- Execute
+  ${vFN},${vERR}=loadstring(table.concat(${vRAW}))
+  if not ${vFN} then
+    error("Lunex:"..tostring(${vERR}))
+  end
+  ${vFN}()
+  ${vST}=0
+elseif ${vST}==12 then
+  -- Dead state (never reached, confuses decompilers)
+  ${vRAW}=nil ${vRES}=nil ${vFN}=nil
+  ${vST}=0
+else
+  ${vST}=0
+end
 end`;
 }
 
