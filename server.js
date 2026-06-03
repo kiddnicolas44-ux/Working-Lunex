@@ -97,9 +97,191 @@ function runPrometheus(source, preset="Maximum") {
     if (result.error) throw new Error("lua spawn: " + result.error.message);
     if (result.stderr?.includes("LUNEX_ERR:"))
         throw new Error(result.stderr.match(/LUNEX_ERR:(.+)/)?.[1]?.trim() || result.stderr.trim());
-    if (result.status !== 0) throw new Error("Prometheus exit " + result.status + ": " + (result.stderr||"").slice(0,300));
+    if (result.status !== 0) throw new Error("Prometheus exit " + result.status);
     if (!result.stdout?.trim()) throw new Error("Prometheus empty output");
     return result.stdout;
+}
+
+// ---------------------------------------------------------------------------
+// ENCRYPTION PIPELINE — 10 layers
+//
+// Layer  1 — Prometheus Maximum  (Vmify full bytecode VM + EncryptStrings x2
+//                                  + ConstantArray + NumbersToExpressions
+//                                  + SplitStrings + ProxifyLocals
+//                                  + AddVararg + WrapInFunction)
+// Layer  2 — RC4 substitution sbox  (keyed per-project — unique per seller)
+// Layer  3 — 8-pass XOR  (4 random 16-byte session keys, new every upload)
+// Layer  4 — Position mixing  (i, i>>3, i>>5 added to key stream)
+// Layer  5 — Project-derived secondary key  (sha256 of project ID)
+// Layer  6 — 8-bit rolling checksum anti-tamper  (infinite loop on mismatch)
+// Layer  7 — 16-bit rolling checksum anti-tamper  (second independent check)
+// Layer  8 — Anti-debug  (hookfunction / getupvalues / getgc /
+//                          checkcaller / syn / KRNL_LOADED)
+// Layer  9 — 10-state VM dispatch loop  (control flow obfuscation)
+// Layer 10 — All variable names randomised (60 unique names per upload)
+// ---------------------------------------------------------------------------
+function buildEncryptedScript(source, projectId) {
+
+    // ── Layer 1: Prometheus Maximum ─────────────────────────────────────────
+    let obfSource = source;
+    try { obfSource = runPrometheus(source, "Maximum"); }
+    catch(e) { console.warn("[Obf] Prometheus failed, falling back:", e.message); }
+
+    // ── Layer 2: RC4 substitution sbox (per-project) ────────────────────────
+    const projKey = deriveKey(projectId);
+    const sbox    = Array.from({length:256},(_,i)=>i);
+    let jj = 0;
+    for (let i=0;i<256;i++) {
+        jj = (jj + sbox[i] + projKey[i%32]) & 0xFF;
+        [sbox[i], sbox[jj]] = [sbox[jj], sbox[i]];
+    }
+    const isbox = new Array(256);
+    for (let i=0;i<256;i++) isbox[sbox[i]] = i;
+
+    // ── Layers 3-5: 8-pass XOR + position mixing + project key ──────────────
+    // 4 independent random 16-byte session keys (new every upload)
+    const sk  = Array.from({length:4}, ()=>Array.from(crypto.randomBytes(16)));
+    // Project-derived secondary key (deterministic per project)
+    const pk2 = Array.from(deriveKey(projectId + "_xk"));
+
+    const bytes = Array.from(Buffer.from(obfSource, "utf8"));
+
+    // Anti-tamper checksums (computed BEFORE encryption)
+    const csm8  = bytes.reduce((s,b)=>(s+b)&0xFF,    0);
+    const csm16 = bytes.reduce((s,b)=>(s+b)&0xFFFF,  0);
+
+    // Encrypt
+    const enc = bytes.map((b, i) => {
+        let v = sbox[b & 0xFF];             // RC4 substitution
+        v = (v ^ sk[0][i%16])       & 0xFF; // pass 1
+        v = (v ^ sk[1][(i*3)%16])   & 0xFF; // pass 2
+        v = (v ^ sk[2][(i*7)%16])   & 0xFF; // pass 3
+        v = (v ^ sk[3][(i*11)%16])  & 0xFF; // pass 4
+        v = (v ^ pk2[i%32])         & 0xFF; // pass 5 (project-unique)
+        v = (v ^ ((i>>3)&0xFF))     & 0xFF; // pass 6 (position mixing)
+        v = (v ^ ((i>>5)&0xFF))     & 0xFF; // pass 7 (position mixing)
+        v = (v ^ (i&0xFF))          & 0xFF; // pass 8
+        return v;
+    });
+
+    // Base64 encode, split into 40-char chunks
+    const b64    = Buffer.from(enc).toString("base64");
+    const chunks = [];
+    for (let i=0;i<b64.length;i+=40) chunks.push(JSON.stringify(b64.slice(i,i+40)));
+
+    // ── 60 unique random variable names per upload ───────────────────────────
+    const V = Array.from({length:60}, uid);
+    const [vST,vB64,vMAP,vDEC,vSTR,vOUT,vLI,vPA,vPB,vPC,vPD,vNUM,
+           vSK0,vSK1,vSK2,vSK3,vPK2,vISB,vRES,vRAW,vBI,vBYT,vFN,vERR,
+           vCSM8,vCSM16,vHOK,vGLI,vTMP,vMAI,vJA,vJB,vJC,vJD,vJE] = V;
+
+    const TAG = crypto.randomBytes(4).toString("hex").toUpperCase();
+
+    return `--[[ Lunex ${TAG} ]]
+local ${vST}=1
+local ${vB64},${vMAP},${vDEC},${vRES},${vRAW},${vFN},${vERR},${vTMP}
+local ${vSK0},${vSK1},${vSK2},${vSK3},${vPK2},${vISB}
+local ${vCSM8},${vCSM16},${vBYT},${vHOK},${vGLI}
+local ${vJA},${vJB},${vJC},${vJD},${vJE}
+while ${vST}>0 do
+if ${vST}==1 then
+  ${vSK0}={${sk[0].join(",")}}
+  ${vSK1}={${sk[1].join(",")}}
+  ${vSK2}={${sk[2].join(",")}}
+  ${vSK3}={${sk[3].join(",")}}
+  ${vPK2}={${pk2.join(",")}}
+  ${vISB}={${isbox.join(",")}}
+  ${vJA}=bit32.bxor(${Math.floor(Math.random()*0xFFFF)},${Math.floor(Math.random()*0xFFFF)})
+  ${vJB}=bit32.band(${Math.floor(Math.random()*0xFFFF)}*${Math.floor(Math.random()*99)+2},0xFFFF)
+  ${vST}=2
+elseif ${vST}==2 then
+  ${vB64}="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+  ${vMAP}={}
+  for ${vMAI}=0,63 do ${vMAP}[${vB64}:sub(${vMAI}+1,${vMAI}+1)]=${vMAI} end
+  ${vJC}=bit32.bxor(${vJA},${vJB})
+  ${vST}=3
+elseif ${vST}==3 then
+  ${vDEC}=function(${vSTR})
+    ${vSTR}=${vSTR}:gsub("[^A-Za-z0-9+/=]","")
+    local ${vOUT}={}
+    for ${vLI}=1,#${vSTR},4 do
+      local ${vPA}=${vMAP}[${vSTR}:sub(${vLI},${vLI})]or 0
+      local ${vPB}=${vMAP}[${vSTR}:sub(${vLI}+1,${vLI}+1)]or 0
+      local ${vPC}=${vMAP}[${vSTR}:sub(${vLI}+2,${vLI}+2)]or 0
+      local ${vPD}=${vMAP}[${vSTR}:sub(${vLI}+3,${vLI}+3)]or 0
+      local ${vNUM}=${vPA}*262144+${vPB}*4096+${vPC}*64+${vPD}
+      ${vOUT}[#${vOUT}+1]=math.floor(${vNUM}/65536)%256
+      if ${vSTR}:sub(${vLI}+2,${vLI}+2)~="=" then ${vOUT}[#${vOUT}+1]=math.floor(${vNUM}/256)%256 end
+      if ${vSTR}:sub(${vLI}+3,${vLI}+3)~="=" then ${vOUT}[#${vOUT}+1]=${vNUM}%256 end
+    end
+    return ${vOUT}
+  end
+  ${vTMP}={${chunks.join(",")}}
+  ${vRES}=${vDEC}(table.concat(${vTMP}))
+  ${vJD}=bit32.band(${vJC}+${vJA},0xFFFF)
+  ${vST}=4
+elseif ${vST}==4 then
+  -- Undo layers 3-5: 8-pass XOR + position mixing + project key (XOR is self-inverse)
+  ${vRAW}={}
+  for ${vBI}=1,#${vRES} do
+    ${vBYT}=${vRES}[${vBI}]
+    local ${vLI}=${vBI}-1
+    ${vBYT}=bit32.bxor(${vBYT},${vLI}%256)
+    ${vBYT}=bit32.bxor(${vBYT},bit32.band(bit32.rshift(${vLI},5),255))
+    ${vBYT}=bit32.bxor(${vBYT},bit32.band(bit32.rshift(${vLI},3),255))
+    ${vBYT}=bit32.bxor(${vBYT},${vPK2}[${vLI}%32+1])
+    ${vBYT}=bit32.bxor(${vBYT},${vSK3}[${vLI}*11%16+1])
+    ${vBYT}=bit32.bxor(${vBYT},${vSK2}[${vLI}*7%16+1])
+    ${vBYT}=bit32.bxor(${vBYT},${vSK1}[${vLI}*3%16+1])
+    ${vBYT}=bit32.bxor(${vBYT},${vSK0}[${vLI}%16+1])
+    ${vRAW}[${vBI}]=string.char(${vISB}[${vBYT}+1])
+  end
+  ${vJE}=bit32.band(${vJD}*3,0xFFFF)
+  ${vST}=5
+elseif ${vST}==5 then
+  -- Layer 6: 8-bit anti-tamper checksum
+  ${vCSM8}=0
+  for ${vBI}=1,#${vRAW} do
+    ${vCSM8}=bit32.band(${vCSM8}+string.byte(${vRAW}[${vBI}]),255)
+  end
+  if ${vCSM8}~=${csm8} then while true do end end
+  ${vST}=6
+elseif ${vST}==6 then
+  -- Layer 7: 16-bit anti-tamper checksum
+  ${vCSM16}=0
+  for ${vBI}=1,#${vRAW} do
+    ${vCSM16}=bit32.band(${vCSM16}+string.byte(${vRAW}[${vBI}]),65535)
+  end
+  if ${vCSM16}~=${csm16} then while true do end end
+  ${vST}=7
+elseif ${vST}==7 then
+  -- Layer 8: anti-debug
+  ${vHOK}=false
+  if hookfunction~=nil then ${vHOK}=true end
+  if getupvalues~=nil  then ${vHOK}=true end
+  if getgc~=nil        then ${vHOK}=true end
+  if checkcaller~=nil  then ${vHOK}=true end
+  if syn~=nil          then ${vHOK}=true end
+  if KRNL_LOADED~=nil  then ${vHOK}=true end
+  if ${vHOK} then
+    ${vGLI}=0
+    while true do ${vGLI}=${vGLI}+1 if ${vGLI}>1e9 then break end end
+    return
+  end
+  ${vST}=8
+elseif ${vST}==8 then
+  -- Layer 9: execute
+  ${vFN},${vERR}=loadstring(table.concat(${vRAW}))
+  if not ${vFN} then error("Lunex:"..tostring(${vERR})) end
+  ${vFN}()
+  ${vST}=0
+elseif ${vST}==9 then
+  -- Dead state — never reached, confuses decompilers
+  ${vRAW}=nil ${vRES}=nil ${vFN}=nil ${vST}=0
+else
+  ${vST}=0
+end
+end`;
 }
 
 // ---------------------------------------------------------------------------
