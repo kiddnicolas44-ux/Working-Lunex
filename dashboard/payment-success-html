@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Lunex — Payment Success</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#050709;color:#e2e8f0;font-family:'Inter',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.card{background:#0f1318;border:1px solid #253047;border-radius:16px;padding:48px;max-width:480px;width:100%;text-align:center;box-shadow:0 40px 80px rgba(0,0,0,.5)}
+.icon{font-size:56px;margin-bottom:20px}
+h1{font-size:24px;font-weight:800;margin-bottom:10px;letter-spacing:-.3px}
+p{font-size:14px;color:#94a3b8;line-height:1.7;margin-bottom:24px}
+.btn{display:inline-flex;align-items:center;justify-content:center;padding:12px 28px;background:#4e8cff;color:#fff;border-radius:9px;font-size:14px;font-weight:700;text-decoration:none;transition:.15s}
+.btn:hover{background:#2563eb}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="icon">⏳</div>
+  <h1>Payment Received!</h1>
+  <p>Your payment is being confirmed on the blockchain. You'll receive your API key via email once confirmed — this usually takes 1–10 minutes depending on the network.</p>
+  <p>Already have your key? Log in below.</p>
+  <a href="/" class="btn">Go to Dashboard →</a>
+</div>
+</body>
+</html>
